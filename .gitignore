@@ -1,0 +1,103 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# uv (Astral package manager)
+.uv/
+uv.lock
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+logs/
+
+# SQLite / local DB
+*.sqlite3
+*.db
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Type checking
+.mypy_cache/
+.pyre/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Grafana
+grafana/data/
+grafana/plugins/
+grafana/logs/
+
+# Kafka
+kafka/logs/
+kafka/data/
+*.kafka
+
+# Zookeeper
+zookeeper/data/
+zookeeper/log/
+
+# AMQP (RabbitMQ)
+rabbitmq/data/
+rabbitmq/log/
+*.pid
+
+# Secrets / certs
+*.pem
+*.key
+*.crt
+
+# Cache
+.cache/
+
+# Temporary files
+tmp/
+temp/
+
+# Coverage reports
+coverage.xml
+
+# Backup files
+*.bak
+*.old
