@@ -13,7 +13,6 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from shared.data_generator import generate_large_message
 from shared.metrics import (
-    ACTIVE_CONNECTIONS,
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,

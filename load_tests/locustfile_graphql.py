@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import time
 
 sys.path.insert(0, "/app")
 

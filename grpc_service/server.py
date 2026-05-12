@@ -16,7 +16,6 @@ from grpc_reflection.v1alpha import reflection
 from generated import benchmark_pb2, benchmark_pb2_grpc
 from shared.data_generator import generate_large_message
 from shared.metrics import (
-    ACTIVE_CONNECTIONS,
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,

@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 import time
 import uuid
-from pathlib import Path
 
 sys.path.insert(0, "/app")
 sys.path.insert(0, "/app/grpc_service")
