@@ -1,0 +1,3 @@
+aiokafka==0.12.*
+prometheus-client==0.21.*
+pydantic==2.*
