@@ -1,0 +1,50 @@
+syntax = "proto3";
+package benchmark;
+
+message SmallRequest {
+    string id = 1;
+    double timestamp = 2;
+    string source = 3;
+    string payload = 4;
+}
+
+message SmallResponse {
+    string id = 1;
+    bool success = 2;
+    double server_timestamp = 3;
+}
+
+message LargeRequest {
+    string id = 1;
+    int32 size_kb = 2;
+}
+
+message Item {
+    string name = 1;
+    string description = 2;
+    double value = 3;
+    repeated string tags = 4;
+    map<string, string> metadata = 5;
+}
+
+message LargeResponse {
+    string id = 1;
+    double timestamp = 2;
+    repeated Item items = 3;
+}
+
+message EchoRequest {
+    bytes data = 1;
+}
+
+message EchoResponse {
+    bytes data = 1;
+}
+
+service BenchmarkService {
+    rpc SendSmall(SmallRequest) returns (SmallResponse);
+    rpc GetLarge(LargeRequest) returns (LargeResponse);
+    rpc Echo(EchoRequest) returns (EchoResponse);
+    rpc StreamLarge(LargeRequest) returns (stream Item);
+    rpc StreamSmall(stream SmallRequest) returns (stream SmallResponse);
+}
