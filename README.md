@@ -94,6 +94,8 @@ Scrape interval: 5 s. Porty metryk: REST=8001, gRPC=9091, GraphQL=8003, AMQP=909
 
 ## Analiza wyników
 
+Grafana serves real-time observation *during* a test run. The scripts below are a separate post-processing pipeline that runs *after* all experiments finish: they merge raw Locust CSVs with Prometheus time-series, run statistical significance tests (Kruskal-Wallis, IQR outlier removal, 95% CI), and produce publication-quality 300 DPI charts suitable for a thesis — something Grafana cannot do.
+
 ```bash
 python scripts/collect_results.py   # wynik: results/locust_unified.csv + prometheus_metrics.csv
 python scripts/analyze_results.py   # wynik: statistical_analysis.csv + significance_tests.csv
