@@ -1,0 +1,286 @@
+{
+  "title": "Benchmark — Protocol Detail",
+  "uid": "comm-benchmark-detail",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "graphTooltip": 1,
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "tags": ["benchmark"],
+  "annotations": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "method",
+        "label": "Protocol",
+        "type": "custom",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "current": {"text": "rest", "value": "rest"},
+        "options": [
+          {"text": "REST",    "value": "rest",    "selected": true},
+          {"text": "gRPC",    "value": "grpc",    "selected": false},
+          {"text": "GraphQL", "value": "graphql", "selected": false},
+          {"text": "AMQP",    "value": "amqp",    "selected": false},
+          {"text": "Kafka",   "value": "kafka",   "selected": false}
+        ],
+        "query": "rest,grpc,graphql,amqp,kafka"
+      }
+    ]
+  },
+  "panels": [
+
+    {"id": 100, "type": "row", "title": "Snapshot — $method",
+     "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 1, "type": "stat", "title": "p50 Latency",
+     "gridPos": {"x": 0, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [
+                     {"color": "green", "value": null},
+                     {"color": "yellow", "value": 0.025},
+                     {"color": "red", "value": 0.1}
+                   ]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 2, "type": "stat", "title": "p95 Latency",
+     "gridPos": {"x": 4, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [
+                     {"color": "green", "value": null},
+                     {"color": "yellow", "value": 0.05},
+                     {"color": "red", "value": 0.2}
+                   ]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p95", "refId": "A"}]},
+
+    {"id": 3, "type": "stat", "title": "p99 Latency",
+     "gridPos": {"x": 8, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [
+                     {"color": "green", "value": null},
+                     {"color": "yellow", "value": 0.1},
+                     {"color": "red", "value": 0.5}
+                   ]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.99, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p99", "refId": "A"}]},
+
+    {"id": 4, "type": "stat", "title": "Throughput",
+     "gridPos": {"x": 12, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [
+                     {"color": "red", "value": null},
+                     {"color": "yellow", "value": 50},
+                     {"color": "green", "value": 200}
+                   ]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"$method\"}[1m]))",
+                  "instant": true, "legendFormat": "req/s", "refId": "A"}]},
+
+    {"id": 5, "type": "stat", "title": "Error Rate",
+     "gridPos": {"x": 16, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "percentunit", "decimals": 2,
+                   "thresholds": {"mode": "absolute", "steps": [
+                     {"color": "green", "value": null},
+                     {"color": "yellow", "value": 0.001},
+                     {"color": "red", "value": 0.05}
+                   ]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"$method\",status=\"error\"}[1m])) / sum(rate(request_total{method=\"$method\"}[1m]))",
+                  "instant": true, "legendFormat": "err%", "refId": "A"}]},
+
+    {"id": 6, "type": "stat", "title": "Active Connections",
+     "gridPos": {"x": 20, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"unit": "short", "decimals": 0,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "active_connections{method=\"$method\"}",
+                  "instant": true, "legendFormat": "conns", "refId": "A"}]},
+
+    {"id": 101, "type": "row", "title": "Latency Distribution Over Time — $method",
+     "gridPos": {"x": 0, "y": 5, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 11, "type": "timeseries", "title": "Latency Percentiles — $method",
+     "description": "p50 / p75 / p95 / p99 — all scenarios aggregated",
+     "gridPos": {"x": 0, "y": 6, "w": 24, "h": 10},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 6, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "p50"}, "properties": [
+           {"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}},
+           {"id": "custom.lineWidth", "value": 2}]},
+         {"matcher": {"id": "byName", "options": "p75"}, "properties": [
+           {"id": "color", "value": {"fixedColor": "#FADE2A", "mode": "fixed"}},
+           {"id": "custom.lineWidth", "value": 2}]},
+         {"matcher": {"id": "byName", "options": "p95"}, "properties": [
+           {"id": "color", "value": {"fixedColor": "#FF9830", "mode": "fixed"}},
+           {"id": "custom.lineWidth", "value": 2}]},
+         {"matcher": {"id": "byName", "options": "p99"}, "properties": [
+           {"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}},
+           {"id": "custom.lineWidth", "value": 2}]}
+       ]},
+     "targets": [
+       {"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le))",
+        "legendFormat": "p50", "refId": "A"},
+       {"expr": "histogram_quantile(0.75, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le))",
+        "legendFormat": "p75", "refId": "B"},
+       {"expr": "histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le))",
+        "legendFormat": "p95", "refId": "C"},
+       {"expr": "histogram_quantile(0.99, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le))",
+        "legendFormat": "p99", "refId": "D"}
+     ]},
+
+    {"id": 102, "type": "row", "title": "Latency by Scenario — $method",
+     "gridPos": {"x": 0, "y": 16, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 12, "type": "timeseries", "title": "p50 Latency by Scenario — $method",
+     "description": "Each line = one scenario (small, large, echo, ...)",
+     "gridPos": {"x": 0, "y": 17, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 5, "showPoints": "never", "spanNulls": true}},
+       "overrides": []},
+     "targets": [
+       {"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le, scenario))",
+        "legendFormat": "{{scenario}}", "refId": "A"}
+     ]},
+
+    {"id": 13, "type": "timeseries", "title": "p95 Latency by Scenario — $method",
+     "gridPos": {"x": 12, "y": 17, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 5, "showPoints": "never", "spanNulls": true}},
+       "overrides": []},
+     "targets": [
+       {"expr": "histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket{method=\"$method\"}[1m])) by (le, scenario))",
+        "legendFormat": "{{scenario}}", "refId": "A"}
+     ]},
+
+    {"id": 103, "type": "row", "title": "Throughput & Errors — $method",
+     "gridPos": {"x": 0, "y": 25, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 14, "type": "timeseries", "title": "Throughput by Scenario — $method",
+     "gridPos": {"x": 0, "y": 26, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "reqps", "decimals": 1,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 10, "showPoints": "never", "spanNulls": true}},
+       "overrides": []},
+     "targets": [
+       {"expr": "sum(rate(request_total{method=\"$method\"}[1m])) by (scenario)",
+        "legendFormat": "{{scenario}}", "refId": "A"}
+     ]},
+
+    {"id": 15, "type": "timeseries", "title": "Errors by Status & Scenario — $method",
+     "gridPos": {"x": 12, "y": 26, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["sum"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "reqps", "decimals": 2,
+         "custom": {"drawStyle": "bars", "lineInterpolation": "linear", "lineWidth": 1,
+                    "fillOpacity": 80, "showPoints": "never", "spanNulls": false,
+                    "stacking": {"group": "A", "mode": "normal"}}},
+       "overrides": []},
+     "targets": [
+       {"expr": "sum(rate(request_total{method=\"$method\",status=\"error\"}[1m])) by (scenario)",
+        "legendFormat": "error: {{scenario}}", "refId": "A"},
+       {"expr": "sum(rate(request_total{method=\"$method\",status=\"success\"}[1m])) by (scenario)",
+        "legendFormat": "ok: {{scenario}}", "refId": "B"}
+     ]},
+
+    {"id": 104, "type": "row", "title": "Payload & Connections — $method",
+     "gridPos": {"x": 0, "y": 34, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 16, "type": "timeseries", "title": "Message Size Distribution — $method",
+     "description": "p50 / p95 by scenario",
+     "gridPos": {"x": 0, "y": 35, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "bytes", "decimals": 0,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 8, "showPoints": "never", "spanNulls": true}},
+       "overrides": []},
+     "targets": [
+       {"expr": "histogram_quantile(0.50, sum(rate(message_size_bytes_bucket{method=\"$method\"}[1m])) by (le, scenario))",
+        "legendFormat": "p50 {{scenario}}", "refId": "A"},
+       {"expr": "histogram_quantile(0.95, sum(rate(message_size_bytes_bucket{method=\"$method\"}[1m])) by (le, scenario))",
+        "legendFormat": "p95 {{scenario}}", "refId": "B"}
+     ]},
+
+    {"id": 17, "type": "timeseries", "title": "Active Connections — $method",
+     "gridPos": {"x": 12, "y": 35, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "short", "decimals": 0,
+         "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2,
+                    "fillOpacity": 20, "showPoints": "never", "spanNulls": true}},
+       "overrides": []},
+     "targets": [{"expr": "active_connections{method=\"$method\"}",
+                  "legendFormat": "connections", "refId": "A"}]}
+  ]
+}

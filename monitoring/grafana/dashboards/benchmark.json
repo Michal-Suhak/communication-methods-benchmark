@@ -1,0 +1,361 @@
+{
+  "title": "Benchmark — All Methods Overview",
+  "uid": "comm-benchmark-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "graphTooltip": 1,
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "tags": ["benchmark"],
+  "annotations": {"list": []},
+  "templating": {"list": []},
+  "panels": [
+
+    {"id": 100, "type": "row", "title": "Current Latency p50 — live snapshot",
+     "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 1, "type": "stat", "title": "REST — p50",
+     "gridPos": {"x": 0, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#2196F3", "mode": "fixed"}, "unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"rest\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 2, "type": "stat", "title": "gRPC — p50",
+     "gridPos": {"x": 4, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#4CAF50", "mode": "fixed"}, "unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"grpc\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 3, "type": "stat", "title": "GraphQL — p50",
+     "gridPos": {"x": 8, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#E91E63", "mode": "fixed"}, "unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"graphql\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 4, "type": "stat", "title": "AMQP — p50 (publish)",
+     "gridPos": {"x": 12, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#FF9800", "mode": "fixed"}, "unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"amqp\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 5, "type": "stat", "title": "Kafka — p50 (produce ack)",
+     "gridPos": {"x": 16, "y": 1, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#9C27B0", "mode": "fixed"}, "unit": "s", "decimals": 3,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket{method=\"kafka\"}[2m])) by (le))",
+                  "instant": true, "legendFormat": "p50", "refId": "A"}]},
+
+    {"id": 101, "type": "row", "title": "Current Throughput — req/s or msg/s",
+     "gridPos": {"x": 0, "y": 5, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 6, "type": "stat", "title": "REST — req/s",
+     "gridPos": {"x": 0, "y": 6, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#2196F3", "mode": "fixed"}, "unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"rest\"}[1m]))",
+                  "instant": true, "legendFormat": "req/s", "refId": "A"}]},
+
+    {"id": 7, "type": "stat", "title": "gRPC — req/s",
+     "gridPos": {"x": 4, "y": 6, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#4CAF50", "mode": "fixed"}, "unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"grpc\"}[1m]))",
+                  "instant": true, "legendFormat": "req/s", "refId": "A"}]},
+
+    {"id": 8, "type": "stat", "title": "GraphQL — req/s",
+     "gridPos": {"x": 8, "y": 6, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#E91E63", "mode": "fixed"}, "unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"graphql\"}[1m]))",
+                  "instant": true, "legendFormat": "req/s", "refId": "A"}]},
+
+    {"id": 9, "type": "stat", "title": "AMQP — msg/s",
+     "gridPos": {"x": 12, "y": 6, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#FF9800", "mode": "fixed"}, "unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"amqp\"}[1m]))",
+                  "instant": true, "legendFormat": "msg/s", "refId": "A"}]},
+
+    {"id": 10, "type": "stat", "title": "Kafka — msg/s",
+     "gridPos": {"x": 16, "y": 6, "w": 4, "h": 4},
+     "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center",
+                 "orientation": "auto", "textMode": "auto",
+                 "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+     "fieldConfig": {
+       "defaults": {"color": {"fixedColor": "#9C27B0", "mode": "fixed"}, "unit": "reqps", "decimals": 1,
+                   "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+       "overrides": []},
+     "targets": [{"expr": "sum(rate(request_total{method=\"kafka\"}[1m]))",
+                  "instant": true, "legendFormat": "msg/s", "refId": "A"}]},
+
+    {"id": 102, "type": "row", "title": "Latency Over Time",
+     "gridPos": {"x": 0, "y": 10, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 11, "type": "timeseries", "title": "Latency p50 — All Methods",
+     "gridPos": {"x": 0, "y": 11, "w": 24, "h": 9},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 8, "showPoints": "never", "spanNulls": true,
+                    "scaleDistribution": {"type": "linear"}}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))",
+                  "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 12, "type": "timeseries", "title": "Latency p95 — All Methods",
+     "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 5, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))",
+                  "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 13, "type": "timeseries", "title": "Latency p99 — All Methods",
+     "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "asc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 5, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "histogram_quantile(0.99, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))",
+                  "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 103, "type": "row", "title": "Throughput & Errors",
+     "gridPos": {"x": 0, "y": 28, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 14, "type": "timeseries", "title": "Throughput (req/s) — All Methods",
+     "gridPos": {"x": 0, "y": 29, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "reqps", "decimals": 1,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 10, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "sum(rate(request_total[1m])) by (method)",
+                  "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 15, "type": "timeseries", "title": "Error Rate — All Methods",
+     "gridPos": {"x": 12, "y": 29, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "percentunit", "decimals": 2,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 20, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [
+       {"expr": "sum(rate(request_total{status=\"error\"}[1m])) by (method) / sum(rate(request_total[1m])) by (method)",
+        "legendFormat": "{{method}}", "refId": "A"}
+     ]},
+
+    {"id": 104, "type": "row", "title": "Infrastructure — Connections & Payload",
+     "gridPos": {"x": 0, "y": 37, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 16, "type": "timeseries", "title": "Active Connections — All Methods",
+     "gridPos": {"x": 0, "y": 38, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "short", "decimals": 0,
+         "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2,
+                    "fillOpacity": 15, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "active_connections", "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 17, "type": "timeseries", "title": "Message Size p50 — All Methods",
+     "gridPos": {"x": 12, "y": 38, "w": 12, "h": 8},
+     "options": {
+       "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table",
+                  "placement": "bottom", "showLegend": true},
+       "tooltip": {"mode": "multi", "sort": "desc"}},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "bytes", "decimals": 0,
+         "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2,
+                    "fillOpacity": 8, "showPoints": "never", "spanNulls": true}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(message_size_bytes_bucket[1m])) by (le, method))",
+                  "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 105, "type": "row", "title": "Rankings — instant snapshot (lower latency = better, higher throughput = better)",
+     "gridPos": {"x": 0, "y": 46, "w": 24, "h": 1}, "collapsed": false},
+
+    {"id": 18, "type": "bargauge", "title": "Latency p50 Ranking — lower is better",
+     "gridPos": {"x": 0, "y": 47, "w": 12, "h": 9},
+     "options": {
+       "displayMode": "lcd",
+       "orientation": "horizontal",
+       "namePlacement": "auto",
+       "sizing": "auto",
+       "valueMode": "color",
+       "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+       "minVizHeight": 10,
+       "maxVizHeight": 300},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "s", "decimals": 3,
+         "thresholds": {"mode": "absolute", "steps": [
+           {"color": "green", "value": null},
+           {"color": "yellow", "value": 0.025},
+           {"color": "orange", "value": 0.05},
+           {"color": "red", "value": 0.1}
+         ]}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket[2m])) by (le, method))",
+                  "instant": true, "legendFormat": "{{method}}", "refId": "A"}]},
+
+    {"id": 19, "type": "bargauge", "title": "Throughput Ranking — higher is better",
+     "gridPos": {"x": 12, "y": 47, "w": 12, "h": 9},
+     "options": {
+       "displayMode": "lcd",
+       "orientation": "horizontal",
+       "namePlacement": "auto",
+       "sizing": "auto",
+       "valueMode": "color",
+       "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+       "minVizHeight": 10,
+       "maxVizHeight": 300},
+     "fieldConfig": {
+       "defaults": {
+         "unit": "reqps", "decimals": 1,
+         "thresholds": {"mode": "absolute", "steps": [
+           {"color": "red", "value": null},
+           {"color": "yellow", "value": 50},
+           {"color": "green", "value": 200}
+         ]}},
+       "overrides": [
+         {"matcher": {"id": "byName", "options": "rest"},    "properties": [{"id": "color", "value": {"fixedColor": "#2196F3", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "grpc"},    "properties": [{"id": "color", "value": {"fixedColor": "#4CAF50", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "graphql"}, "properties": [{"id": "color", "value": {"fixedColor": "#E91E63", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "amqp"},    "properties": [{"id": "color", "value": {"fixedColor": "#FF9800", "mode": "fixed"}}]},
+         {"matcher": {"id": "byName", "options": "kafka"},   "properties": [{"id": "color", "value": {"fixedColor": "#9C27B0", "mode": "fixed"}}]}
+       ]},
+     "targets": [{"expr": "sum(rate(request_total[2m])) by (method)",
+                  "instant": true, "legendFormat": "{{method}}", "refId": "A"}]}
+  ]
+}

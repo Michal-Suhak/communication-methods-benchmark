@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'rest-server'
+    static_configs:
+      - targets: ['rest-server:8001']
+    metrics_path: /metrics
+
+  - job_name: 'grpc-server'
+    static_configs:
+      - targets: ['grpc-server:9091']
+    metrics_path: /metrics
+
+  - job_name: 'graphql-server'
+    static_configs:
+      - targets: ['graphql-server:8003']
+    metrics_path: /metrics
+
+  - job_name: 'amqp-consumer'
+    static_configs:
+      - targets: ['amqp-consumer:9092']
+    metrics_path: /metrics
+
+  - job_name: 'kafka-consumer'
+    static_configs:
+      - targets: ['kafka-consumer:9093']
+    metrics_path: /metrics
