@@ -59,7 +59,7 @@ def box_latency(raw_df: pd.DataFrame, metric_col: str):
     fig, ax = plt.subplots(figsize=(10, 5))
     methods = sorted(raw_df["method"].unique())
     data = [raw_df[raw_df["method"] == m][metric_col].dropna().values for m in methods]
-    bp = ax.boxplot(data, labels=methods, patch_artist=True)
+    bp = ax.boxplot(data, tick_labels=methods, patch_artist=True)
     for patch, method in zip(bp["boxes"], methods):
         patch.set_facecolor(METHOD_COLORS.get(method, "#999"))
     ax.set_ylabel(metric_col)

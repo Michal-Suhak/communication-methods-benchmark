@@ -5,7 +5,7 @@ WARMUP_DURATION=30
 TEST_DURATION=60
 COOLDOWN_DURATION=15
 RESULTS_DIR=/app/results
-REPETITIONS=5
+REPETITIONS=3
 
 METHODS=("rest" "grpc" "graphql" "amqp" "kafka")
 LOCUST_FILES=("locustfile_rest.py" "locustfile_grpc.py" "locustfile_graphql.py" "locustfile_amqp.py" "locustfile_kafka.py")

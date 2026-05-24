@@ -2,7 +2,7 @@ locust==2.32.*
 httpx==0.28.*
 grpcio==1.68.*
 grpcio-tools==1.68.*
-aio-pika==9.*
-aiokafka==0.12.*
+pika==1.3.*
+kafka-python==2.0.*
 prometheus-client==0.21.*
 pydantic==2.*

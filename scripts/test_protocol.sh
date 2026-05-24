@@ -17,48 +17,17 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RESULTS_DIR="$(cd "$(dirname "$0")/.." && pwd)/results"
 mkdir -p "$RESULTS_DIR"
 
-declare -A SERVICE_MAP=(
-  [rest]="rest-server"
-  [grpc]="grpc-server"
-  [graphql]="graphql-server"
-  [amqp]="amqp-consumer"
-  [kafka]="kafka-consumer"
-)
-
-declare -A LOCUST_MAP=(
-  [rest]="locustfile_rest.py"
-  [grpc]="locustfile_grpc.py"
-  [graphql]="locustfile_graphql.py"
-  [amqp]="locustfile_amqp.py"
-  [kafka]="locustfile_kafka.py"
-)
-
-declare -A HOST_MAP=(
-  [rest]="http://rest-server:8001"
-  [grpc]="grpc-server:50051"
-  [graphql]="http://graphql-server:8003"
-  [amqp]="amqp://guest:guest@rabbitmq:5672/"
-  [kafka]="kafka:9092"
-)
-
-declare -A INFRA_MAP=(
-  [rest]=""
-  [grpc]=""
-  [graphql]=""
-  [amqp]="rabbitmq"
-  [kafka]="zookeeper kafka"
-)
-
-if [[ -z "${SERVICE_MAP[$PROTOCOL]+x}" ]]; then
-  echo "Unknown protocol: $PROTOCOL"
-  echo "Valid: rest | grpc | graphql | amqp | kafka"
-  exit 1
-fi
-
-SERVICE="${SERVICE_MAP[$PROTOCOL]}"
-LOCUST_FILE="${LOCUST_MAP[$PROTOCOL]}"
-HOST="${HOST_MAP[$PROTOCOL]}"
-INFRA="${INFRA_MAP[$PROTOCOL]}"
+case "$PROTOCOL" in
+  rest)     SERVICE="rest-server";    LOCUST_FILE="locustfile_rest.py";    HOST="http://rest-server:8001";          INFRA="" ;;
+  grpc)     SERVICE="grpc-server";    LOCUST_FILE="locustfile_grpc.py";    HOST="grpc-server:50051";                INFRA="" ;;
+  graphql)  SERVICE="graphql-server"; LOCUST_FILE="locustfile_graphql.py"; HOST="http://graphql-server:8003";       INFRA="" ;;
+  amqp)     SERVICE="amqp-consumer";  LOCUST_FILE="locustfile_amqp.py";    HOST="amqp://guest:guest@rabbitmq:5672/"; INFRA="rabbitmq" ;;
+  kafka)    SERVICE="kafka-consumer"; LOCUST_FILE="locustfile_kafka.py";   HOST="kafka:9092";                       INFRA="zookeeper kafka" ;;
+  *)
+    echo "Unknown protocol: $PROTOCOL"
+    echo "Valid: rest | grpc | graphql | amqp | kafka"
+    exit 1 ;;
+esac
 
 echo "================================================"
 echo "  Protocol : $PROTOCOL"
@@ -67,11 +36,9 @@ echo "  Duration : ${DURATION}s  (+ 30s warmup)"
 echo "  Results  : $RESULTS_DIR/${PROTOCOL}_${USERS}u_${TIMESTAMP}_*.csv"
 echo "================================================"
 
-# Ensure monitoring is up (idempotent)
 echo "[1/4] Starting monitoring..."
 docker compose up -d prometheus grafana
 
-# Ensure protocol-specific infrastructure is up
 if [[ -n "$INFRA" ]]; then
   echo "[1/4] Starting infrastructure: $INFRA"
   # shellcheck disable=SC2086
@@ -80,12 +47,10 @@ if [[ -n "$INFRA" ]]; then
   sleep 20
 fi
 
-# Start the service under test
 echo "[2/4] Starting service: $SERVICE"
 docker compose up -d "$SERVICE"
 sleep 5
 
-# Locust web UI mode — open browser, control manually
 if [[ "$MODE" == "--ui" ]]; then
   echo "[UI] Locust web UI starting at http://localhost:8089"
   echo "     Press Ctrl+C to stop."
@@ -94,7 +59,6 @@ if [[ "$MODE" == "--ui" ]]; then
   exit 0
 fi
 
-# Headless: warmup then measure
 echo "[3/4] Warmup 30s (results discarded)..."
 docker compose run --rm locust \
   locust -f "/app/$LOCUST_FILE" --headless \

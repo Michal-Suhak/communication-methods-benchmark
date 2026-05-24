@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -13,16 +14,30 @@ PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
 
 
 def load_locust_stats() -> pd.DataFrame:
+    # format 1 (run_all_scenarios.sh): method_uUSERS_repREP
+    # format 2 (test_protocol.sh):     method_USERSu_YYYYMMDD_HHMMSS
+    pat1 = re.compile(r"(?P<method>[a-z]+)_u(?P<users>\d+)_rep(?P<rep>\d+)")
+    pat2 = re.compile(r"(?P<method>[a-z]+)_(?P<users>\d+)u_\d{8}_\d{6}")
+
+    rep_counters: dict[tuple, int] = {}
     frames = []
     for path in sorted(RESULTS_DIR.glob("*_stats.csv")):
         name = path.stem.replace("_stats", "")
-        m = re.match(r"(?P<method>[a-z]+)_u(?P<users>\d+)_rep(?P<rep>\d+)", name)
-        if not m:
-            continue
+        m = pat1.match(name)
+        if m:
+            method, users, rep = m.group("method"), int(m.group("users")), int(m.group("rep"))
+        else:
+            m = pat2.match(name)
+            if not m:
+                continue
+            method, users = m.group("method"), int(m.group("users"))
+            key = (method, users)
+            rep_counters[key] = rep_counters.get(key, 0) + 1
+            rep = rep_counters[key]
         df = pd.read_csv(path)
-        df["method"] = m.group("method")
-        df["users"] = int(m.group("users"))
-        df["repetition"] = int(m.group("rep"))
+        df["method"] = method
+        df["users"] = users
+        df["repetition"] = rep
         frames.append(df)
     if not frames:
         print("No Locust stats CSV files found.")
@@ -31,9 +46,11 @@ def load_locust_stats() -> pd.DataFrame:
 
 
 def query_prometheus(promql: str, step: str = "15s") -> pd.DataFrame:
+    end = int(time.time())
+    start = end - 3600
     resp = requests.get(
         f"{PROMETHEUS_URL}/api/v1/query_range",
-        params={"query": promql, "start": "now-1h", "end": "now", "step": step},
+        params={"query": promql, "start": start, "end": end, "step": step},
         timeout=10,
     )
     resp.raise_for_status()
