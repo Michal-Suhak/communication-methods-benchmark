@@ -113,15 +113,26 @@ def main():
         print(f"Run analyze_results.py first (missing {stats_path})")
         return
 
-    df = pd.read_csv(stats_path)
-    print("Generating bar chart...")
-    bar_latency(df)
+    # Plik bywa pusty, gdy analyze_results.py pominął wszystkie grupy (n<3 powtórzeń
+    # na metodę) — wtedy pomijamy wykresy zagregowane, ale box plot z surowych danych
+    # nadal ma sens.
+    try:
+        df = pd.read_csv(stats_path)
+    except pd.errors.EmptyDataError:
+        df = pd.DataFrame()
 
-    print("Generating heatmap...")
-    heatmap(df)
+    if df.empty:
+        print(f"Brak zagregowanych statystyk w {stats_path} (za mało powtórzeń?) — "
+              "pomijam bar chart / heatmap / radar.")
+    else:
+        print("Generating bar chart...")
+        bar_latency(df)
 
-    print("Generating radar chart...")
-    radar(df)
+        print("Generating heatmap...")
+        heatmap(df)
+
+        print("Generating radar chart...")
+        radar(df)
 
     if locust_path.exists():
         raw = pd.read_csv(locust_path)
