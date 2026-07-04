@@ -11,7 +11,7 @@ Use the **Locust web UI** for exploration, **headless CLI** for actual measureme
 
 ```bash
 # Infrastructure + monitoring
-docker compose up -d --build rabbitmq zookeeper kafka prometheus grafana
+docker compose up -d --build rabbitmq zookeeper kafka prometheus grafana cadvisor
 # Wait ~30s for Kafka and RabbitMQ
 
 # Application services + Locust
@@ -57,18 +57,22 @@ Each run: 30 s warmup (discarded) → measurement → CSV in `results/`.
 
 ```bash
 bash scripts/run_experiment.sh
-# build → start → all scenarios × 5 repetitions → analysis → charts
+# build → start → all scenarios → analysis → charts
 ```
+
+Scenario knobs (env vars for `run_all_scenarios.sh`): `SCENARIOS="throughput spike long_running"`, `USER_LEVELS="10 100 500 1000"`, `REPETITIONS=5`, `SPIKE_REPS=3`, `LONG_DURATION=300` (set `1800` for the full 30-min plan), `LONG_REPS=1`.
 
 ---
 
 ## Step 5 — Results analysis
 
 ```bash
-python scripts/collect_results.py   # merges Locust + Prometheus CSVs
-python scripts/analyze_results.py   # p50–p99, Kruskal-Wallis, 95% CI
+python scripts/collect_results.py   # merges Locust + Prometheus CSVs (window matched to test run)
+python scripts/analyze_results.py   # p50/p95/p99 (ms), omnibus + post-hoc (Tukey/Dunn), 95% CI
 python scripts/generate_charts.py   # 300 DPI PNG/SVG for thesis
 ```
+
+Latency units: Locust CSVs = **ms**, Prometheus = **s**. Cross-protocol comparisons: use client-side (Locust) latency; AMQP/Kafka measure publish→ACK, not round-trip — end-to-end is the separate `e2e_latency_seconds` metric.
 
 ---
 

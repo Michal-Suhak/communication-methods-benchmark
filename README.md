@@ -24,7 +24,7 @@ Load testing: [Locust](https://locust.io) · Metrics: [Prometheus](https://prome
 
 ```bash
 # Infrastructure + monitoring
-docker compose up -d --build rabbitmq zookeeper kafka prometheus grafana
+docker compose up -d --build rabbitmq zookeeper kafka prometheus grafana cadvisor
 # Wait ~30s
 
 # Application services + Locust
@@ -72,25 +72,35 @@ Full run documentation: [`RUN_INSTRUCTION.md`](RUN_INSTRUCTION.md)
 
 ## Test scenarios
 
-| # | Scenario | Payload | Users | Duration |
-|---|----------|---------|-------|----------|
-| 1 | Small messages, high frequency | ~100–500 B | 10 → 100 → 500 → 1000 | 60 s / level |
-| 2 | Large responses | ~50–100 KB | 10 → 50 → 100 | 60 s / level |
-| 3 | Spike test | ~100–500 B | 10 → 2000 (ramp 10 s) | 30 s peak |
-| 4 | Long-running connections | ~100–500 B | 50 (steady) | 30 min |
+Implemented in `load_tests/run_all_scenarios.sh` (selectable via `SCENARIOS`, all values overridable via env vars):
 
-Each scenario repeated **5 times**. Before each measurement: 30 s warmup (results discarded), 15 s cooldown after the test.
+| Scenario | Payload | Users | Duration | Repetitions |
+|----------|---------|-------|----------|-------------|
+| `throughput` (small + large task mix) | ~100–500 B / ~50 KB | 10 → 100 → 500 → 1000 (`USER_LEVELS`) | 60 s / level (`TEST_DURATION`) | 5 (`REPETITIONS`) |
+| `spike` | ~100–500 B / ~50 KB | 2000 (ramp 200/s ≈ 10 s) | 60 s peak | 3 (`SPIKE_REPS`) |
+| `long_running` | ~100–500 B / ~50 KB | 50 (steady) | 300 s default, plan: 1800 s (`LONG_DURATION`) | 1 (`LONG_REPS`) |
+
+Before each measurement: 30 s warmup (results discarded; separate Locust process — client connection pools are cold-started in the measured run), 15 s cooldown after the test.
+
+### What latency means per protocol
+
+- **REST / gRPC / GraphQL** — full client-side round-trip (Locust).
+- **AMQP** — publish → broker confirm (publisher confirms enabled), **Kafka** — publish → broker ACK (`acks=all`). Comparable to each other, *not* directly to round-trip numbers.
+- **End-to-end latency** (producer → consumer) is a separate metric `e2e_latency_seconds` reported by consumers.
 
 ## Prometheus metrics
 
 | Metric | Type | Labels |
 |--------|------|--------|
-| `request_latency_seconds` | Histogram | `method`, `scenario` |
+| `request_latency_seconds` | Histogram | `method`, `scenario` — server-side processing time (full request scope: REST middleware, gRPC interceptor, GraphQL schema extension) |
+| `e2e_latency_seconds` | Histogram | `method`, `scenario` — producer→consumer end-to-end (AMQP/Kafka) |
 | `request_total` | Counter | `method`, `scenario`, `status` |
 | `message_size_bytes` | Histogram | `method`, `scenario` |
 | `active_connections` | Gauge | `method` |
 
-Scrape interval: 5 s. Metrics ports: REST=8001, gRPC=9091, GraphQL=8003, AMQP=9092, Kafka=9093.
+Scenario labels are canonical across all services: `small` / `large` / `echo`. Scrape interval: 5 s. Metrics ports: REST=8001, gRPC=9091, GraphQL=8003, AMQP=9092, Kafka=9093. Container CPU/RAM comes from **cAdvisor** (port 8080).
+
+> For cross-protocol latency comparisons use the client-side (Locust) numbers — Locust reports **milliseconds**, Prometheus histograms are in **seconds**.
 
 ## Results analysis
 
@@ -104,10 +114,11 @@ python scripts/generate_charts.py   # output: results/charts/*.png + *.svg
 
 | File | Contents |
 |------|----------|
-| `locust_unified.csv` | Merged Locust statistics |
-| `prometheus_metrics.csv` | Prometheus time-series |
-| `statistical_analysis.csv` | Mean, median, std, IQR, p50–p99, 95% CI |
-| `significance_tests.csv` | Kruskal-Wallis test results |
+| `locust_unified.csv` | Merged Locust statistics (latency in **ms**) |
+| `prometheus_metrics.csv` | Prometheus time-series (latency in **s**), window matched to test run |
+| `statistical_analysis.csv` | Per-method stats over `Aggregated` rows: mean, median, std, IQR, p50/p95/p99 (same-percentile mean across repetitions), 95% CI |
+| `significance_tests.csv` | Omnibus test (ANOVA or Kruskal-Wallis, chosen by Shapiro normality) |
+| `posthoc_tukey.csv` / `posthoc_dunn.csv` | Pairwise post-hoc comparisons (Tukey HSD / Dunn with Bonferroni) |
 | `results/charts/` | latency_bar, latency_boxplot, heatmap, radar |
 
 ## Resource limits (per container)
@@ -120,6 +131,7 @@ python scripts/generate_charts.py   # output: results/charts/*.png + *.svg
 | Locust | 2.0 | 1 GB |
 | Prometheus | 0.5 | 512 MB |
 | Grafana | 0.5 | 256 MB |
+| cAdvisor | 0.5 | 256 MB |
 
 ## gRPC code generation
 
