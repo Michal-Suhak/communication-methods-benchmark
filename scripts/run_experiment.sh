@@ -24,7 +24,6 @@ sleep 15
 # 4. Health checks
 echo "[4/7] Running health checks..."
 for svc in rest-server graphql-server; do
-    host=$(echo "$svc" | tr '-' '-')
     port=8001
     [[ "$svc" == "graphql-server" ]] && port=8003
     curl -sf "http://localhost:${port}/api/health" > /dev/null && echo "  $svc OK" || echo "  $svc WARN"

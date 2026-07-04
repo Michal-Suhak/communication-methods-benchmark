@@ -1,6 +1,8 @@
-pandas==2.*
-numpy==2.*
-scipy==1.*
-matplotlib==3.*
+pandas==2.2.*
+numpy==2.1.*
+scipy==1.14.*
+statsmodels==0.14.*
+scikit-posthocs==0.11.*
+matplotlib==3.9.*
 seaborn==0.13.*
-requests==2.*
+requests==2.32.*

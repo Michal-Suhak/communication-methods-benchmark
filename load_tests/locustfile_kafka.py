@@ -8,9 +8,9 @@ sys.path.insert(0, "/app")
 from kafka import KafkaProducer
 from locust import User, between, events, task
 
-from shared.data_generator import generate_small_message
+from shared.data_generator import generate_large_message, generate_small_message
 
-_BOOTSTRAP = "kafka:9092"
+_DEFAULT_BOOTSTRAP = "kafka:9092"
 
 
 class KafkaUser(User):
@@ -18,7 +18,7 @@ class KafkaUser(User):
 
     def on_start(self):
         self._producer = KafkaProducer(
-            bootstrap_servers=_BOOTSTRAP,
+            bootstrap_servers=self.host or _DEFAULT_BOOTSTRAP,
             acks="all",
             linger_ms=5,
             batch_size=16384,
@@ -30,22 +30,29 @@ class KafkaUser(User):
         except Exception:
             pass
 
-    @task
-    def produce_small(self):
-        msg = generate_small_message()
-        body = msg.model_dump_json().encode()
+    def _produce(self, name: str, topic: str, body: bytes):
         start = time.perf_counter()
         exc = None
         try:
-            future = self._producer.send("small-messages", value=body)
+            future = self._producer.send(topic, value=body)
             future.get(timeout=30)
         except Exception as e:
             exc = e
         elapsed_ms = (time.perf_counter() - start) * 1000
         events.request.fire(
             request_type="kafka",
-            name="produce_small",
+            name=name,
             response_time=elapsed_ms,
             response_length=len(body),
             exception=exc,
         )
+
+    @task(3)
+    def produce_small(self):
+        body = generate_small_message().model_dump_json().encode()
+        self._produce("produce_small", "small-messages", body)
+
+    @task(1)
+    def produce_large(self):
+        body = generate_large_message(50).model_dump_json().encode()
+        self._produce("produce_large", "large-messages", body)

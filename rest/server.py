@@ -16,19 +16,26 @@ from shared.metrics import (
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,
+    canonical_scenario,
 )
 from shared.models import LargeMessage, SmallMessage
 
 app = FastAPI(title="REST Benchmark Server")
 
+# Ścieżki pomijane w pomiarze: scrape Prometheusa i health-check nie są ruchem
+# benchmarkowym i zaniżałyby/zaburzały histogram latencji oraz licznik żądań.
+_SKIP_PATHS = {"/metrics", "/api/health"}
+
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    if request.url.path in _SKIP_PATHS:
+        return await call_next(request)
     start = time.perf_counter()
     response = await call_next(request)
     elapsed = time.perf_counter() - start
     method_label = "rest"
-    scenario = request.url.path.lstrip("/").replace("/", "_") or "unknown"
+    scenario = canonical_scenario(request.url.path)
     REQUEST_LATENCY.labels(method=method_label, scenario=scenario).observe(elapsed)
     content_length = response.headers.get("content-length")
     if content_length:

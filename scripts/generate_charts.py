@@ -42,16 +42,16 @@ def bar_latency(df: pd.DataFrame):
     methods = df["method"].tolist()
     x = np.arange(len(methods))
     width = 0.25
+    # Kodowanie: kolor = percentyl (spójne z legendą). Oś X grupuje metody.
+    pct_colors = {"p50": "#90CAF9", "p95": "#1976D2", "p99": "#0D47A1"}
     fig, ax = plt.subplots(figsize=(10, 5))
     for i, pct in enumerate(percentiles):
-        bars = ax.bar(x + i * width, df[pct], width, label=pct)
-        for bar, method in zip(bars, methods):
-            bar.set_color(METHOD_COLORS.get(method, "#999"))
+        ax.bar(x + i * width, df[pct], width, label=pct, color=pct_colors[pct])
     ax.set_xticks(x + width)
     ax.set_xticklabels(methods)
-    ax.set_ylabel("Latency (s)")
+    ax.set_ylabel("Latency (ms)")
     ax.set_title("Latency p50 / p95 / p99 per method")
-    ax.legend()
+    ax.legend(title="percentyl")
     _save(fig, "latency_bar")
 
 
@@ -62,7 +62,7 @@ def box_latency(raw_df: pd.DataFrame, metric_col: str):
     bp = ax.boxplot(data, tick_labels=methods, patch_artist=True)
     for patch, method in zip(bp["boxes"], methods):
         patch.set_facecolor(METHOD_COLORS.get(method, "#999"))
-    ax.set_ylabel(metric_col)
+    ax.set_ylabel(f"Latency (ms) — {metric_col}")
     ax.set_title("Latency distribution per method")
     _save(fig, "latency_boxplot")
 
@@ -125,6 +125,9 @@ def main():
 
     if locust_path.exists():
         raw = pd.read_csv(locust_path)
+        # Tylko wiersze zbiorcze — spójnie z analyze_results.py (bez mieszania endpointów).
+        if "Name" in raw.columns and (raw["Name"] == "Aggregated").any():
+            raw = raw[raw["Name"] == "Aggregated"]
         metric_col = "50%" if "50%" in raw.columns else raw.select_dtypes("number").columns[0]
         print("Generating box plot...")
         box_latency(raw, metric_col)

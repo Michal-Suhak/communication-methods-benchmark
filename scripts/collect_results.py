@@ -45,9 +45,25 @@ def load_locust_stats() -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
-def query_prometheus(promql: str, step: str = "15s") -> pd.DataFrame:
-    end = int(time.time())
-    start = end - 3600
+def prometheus_window() -> tuple[int, int]:
+    """Okno [start, end] dopasowane do czasu testu, a nie do „ostatniej godziny".
+
+    Kolejność: jawne PROM_START/PROM_END → rozpiętość czasów modyfikacji plików
+    wyników (z marginesem) → fallback PROM_LOOKBACK_SECONDS (domyślnie 1h).
+    """
+    now = int(time.time())
+    start_env, end_env = os.getenv("PROM_START"), os.getenv("PROM_END")
+    if start_env and end_env:
+        return int(start_env), int(end_env)
+    files = list(RESULTS_DIR.glob("*_stats.csv"))
+    if files:
+        mtimes = [int(f.stat().st_mtime) for f in files]
+        return min(mtimes) - 120, now
+    lookback = int(os.getenv("PROM_LOOKBACK_SECONDS", "3600"))
+    return now - lookback, now
+
+
+def query_prometheus(promql: str, start: int, end: int, step: str = "15s") -> pd.DataFrame:
     resp = requests.get(
         f"{PROMETHEUS_URL}/api/v1/query_range",
         params={"query": promql, "start": start, "end": end, "step": step},
@@ -69,17 +85,26 @@ def main():
     print("Loading Locust stats...")
     locust_df = load_locust_stats()
 
-    print("Querying Prometheus...")
+    start, end = prometheus_window()
+    print(f"Querying Prometheus (okno {end - start}s, od ts={start})...")
     prom_frames = []
     queries = {
+        # RPC/HTTP: latencja po stronie serwera
         "latency_p50": 'histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
         "latency_p95": 'histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
         "latency_p99": 'histogram_quantile(0.99, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
+        # Messaging: latencja end-to-end (producent → konsument)
+        "e2e_latency_p50": 'histogram_quantile(0.50, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
+        "e2e_latency_p95": 'histogram_quantile(0.95, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
+        "e2e_latency_p99": 'histogram_quantile(0.99, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
         "throughput": 'sum(rate(request_total[1m])) by (method)',
     }
     for metric_name, promql in queries.items():
         try:
-            df = query_prometheus(promql)
+            df = query_prometheus(promql, start, end)
+            if df.empty:
+                print(f"  Uwaga: zapytanie '{metric_name}' nie zwróciło danych w oknie testu.")
+                continue
             df["metric"] = metric_name
             prom_frames.append(df)
         except Exception as exc:
@@ -90,6 +115,8 @@ def main():
         out = RESULTS_DIR / "prometheus_metrics.csv"
         prom_df.to_csv(out, index=False)
         print(f"  Saved Prometheus metrics → {out}")
+    else:
+        print("  Brak danych z Prometheusa — sprawdź okno czasowe i czy serwisy były scrapowane.")
 
     if not locust_df.empty:
         out = RESULTS_DIR / "locust_unified.csv"

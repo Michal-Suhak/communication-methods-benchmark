@@ -27,3 +27,9 @@ scrape_configs:
     static_configs:
       - targets: ['kafka-consumer:9093']
     metrics_path: /metrics
+
+  # Metryki kontenerów (CPU/RAM) dla paneli Grafany.
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: /metrics

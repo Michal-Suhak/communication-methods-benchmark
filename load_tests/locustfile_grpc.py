@@ -16,7 +16,7 @@ import benchmark_pb2_grpc   # its internal "import benchmark_pb2" now hits sys.m
 
 from shared.data_generator import generate_small_message
 
-_TARGET = "grpc-server:50051"
+_DEFAULT_TARGET = "grpc-server:50051"
 
 
 class GrpcUser(User):
@@ -24,7 +24,7 @@ class GrpcUser(User):
 
     def on_start(self):
         self._channel = grpc.insecure_channel(
-            _TARGET,
+            self.host or _DEFAULT_TARGET,
             options=[
                 ("grpc.keepalive_time_ms", 60000),
                 ("grpc.max_send_message_length", 10 * 1024 * 1024),
@@ -34,7 +34,9 @@ class GrpcUser(User):
         self._stub = benchmark_pb2_grpc.BenchmarkServiceStub(self._channel)
 
     def on_stop(self):
-        self._channel.close()
+        channel = getattr(self, "_channel", None)
+        if channel is not None:
+            channel.close()
 
     @task(3)
     def send_small(self):
@@ -47,16 +49,18 @@ class GrpcUser(User):
         )
         start = time.perf_counter()
         exc = None
+        response_length = 0
         try:
-            self._stub.SendSmall(req)
-        except grpc.RpcError as e:
+            response = self._stub.SendSmall(req)
+            response_length = response.ByteSize()
+        except Exception as e:
             exc = e
         elapsed_ms = (time.perf_counter() - start) * 1000
         events.request.fire(
             request_type="grpc",
             name="SendSmall",
             response_time=elapsed_ms,
-            response_length=0,
+            response_length=response_length,
             exception=exc,
         )
 
@@ -69,7 +73,7 @@ class GrpcUser(User):
         try:
             response = self._stub.GetLarge(req)
             response_length = response.ByteSize()
-        except grpc.RpcError as e:
+        except Exception as e:
             exc = e
         elapsed_ms = (time.perf_counter() - start) * 1000
         events.request.fire(

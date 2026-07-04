@@ -1,70 +1,54 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Awaitable
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aiokafka import AIOKafkaConsumer as _AIOKafkaConsumer
+from kafka import KafkaConsumer as _KafkaConsumer
 
-from shared.metrics import MESSAGE_SIZE, REQUEST_COUNT, REQUEST_LATENCY, start_metrics_server
+from shared.metrics import (
+    E2E_LATENCY,
+    MESSAGE_SIZE,
+    REQUEST_COUNT,
+    canonical_scenario,
+    start_metrics_server,
+)
 
 _BOOTSTRAP = "kafka:9092"
+_TOPICS = ["small-messages", "large-messages", "echo-messages"]
 
 
-class KafkaConsumer:
-    def __init__(self, bootstrap_servers: str = _BOOTSTRAP) -> None:
-        self._bootstrap = bootstrap_servers
-        self._consumer: _AIOKafkaConsumer | None = None
-
-    async def start(self, topics: list[str]):
-        self._consumer = _AIOKafkaConsumer(
-            *topics,
-            bootstrap_servers=self._bootstrap,
-            group_id="benchmark-group",
-            auto_offset_reset="earliest",
-            enable_auto_commit=False,
-            max_poll_records=500,
-        )
-        await self._consumer.start()
-
-    async def consume(self, callback: Callable[[dict], Awaitable[None]]):
-        async for msg in self._consumer:
-            try:
-                data = json.loads(msg.value)
-                receive_ts = time.time()
-                if "timestamp" in data:
-                    latency = receive_ts - data["timestamp"]
-                    REQUEST_LATENCY.labels(method="kafka", scenario=msg.topic).observe(latency)
-                MESSAGE_SIZE.labels(method="kafka", scenario=msg.topic).observe(len(msg.value))
-                await callback(data)
-                await self._consumer.commit()
-                REQUEST_COUNT.labels(method="kafka", scenario=msg.topic, status="success").inc()
-            except Exception as exc:
-                REQUEST_COUNT.labels(method="kafka", scenario=msg.topic, status="error").inc()
-                print(f"Error processing message: {exc}", flush=True)
-
-    async def stop(self):
-        if self._consumer:
-            await self._consumer.stop()
-
-
-async def _noop_callback(data: dict):
-    pass
-
-
-async def main():
+def main():
     start_metrics_server(9093)
-    consumer = KafkaConsumer()
-    topics = ["small-messages", "large-messages", "echo-messages"]
-    await consumer.start(topics)
-    print(f"Kafka consumer started, consuming {topics}", flush=True)
-    await consumer.consume(_noop_callback)
+    consumer = _KafkaConsumer(
+        *_TOPICS,
+        bootstrap_servers=_BOOTSTRAP,
+        group_id="benchmark-group",
+        # latest: świeży/zrestartowany konsument widzi tylko nowe wiadomości,
+        # nie odtwarza zaległości z poprzednich runów (chroni e2e latency).
+        auto_offset_reset="latest",
+        # Commit okresowy zamiast po każdej wiadomości — nie ogranicza throughputu.
+        enable_auto_commit=True,
+        auto_commit_interval_ms=1000,
+        max_poll_records=500,
+    )
+    print(f"Kafka consumer started, consuming {_TOPICS}", flush=True)
+    for msg in consumer:
+        scenario = canonical_scenario(msg.topic)
+        try:
+            data = json.loads(msg.value)
+            if isinstance(data, dict) and "timestamp" in data:
+                latency = time.time() - data["timestamp"]
+                E2E_LATENCY.labels(method="kafka", scenario=scenario).observe(latency)
+            MESSAGE_SIZE.labels(method="kafka", scenario=scenario).observe(len(msg.value))
+            REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="success").inc()
+        except Exception as exc:
+            REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="error").inc()
+            print(f"Error processing message: {exc}", flush=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

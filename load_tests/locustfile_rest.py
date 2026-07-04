@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, "/app")
 
-from locust import HttpUser, between, events, task
+from locust import HttpUser, between, task
 
 from shared.data_generator import generate_large_message, generate_small_message
 

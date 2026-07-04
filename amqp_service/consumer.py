@@ -1,72 +1,77 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Awaitable
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import aio_pika
+import pika
 
-from shared.metrics import MESSAGE_SIZE, REQUEST_COUNT, REQUEST_LATENCY, start_metrics_server
+from shared.metrics import (
+    E2E_LATENCY,
+    MESSAGE_SIZE,
+    REQUEST_COUNT,
+    canonical_scenario,
+    start_metrics_server,
+)
 
-_AMQP_URL = "amqp://guest:guest@rabbitmq:5672/"
-
-
-class AMQPConsumer:
-    def __init__(self, amqp_url: str = _AMQP_URL) -> None:
-        self._url = amqp_url
-        self._connection: aio_pika.RobustConnection | None = None
-        self._channel: aio_pika.Channel | None = None
-
-    async def connect(self):
-        self._connection = await aio_pika.connect_robust(self._url)
-        self._channel = await self._connection.channel()
-        await self._channel.set_qos(prefetch_count=100)
-
-    async def start_consuming(self, queue_name: str, callback: Callable[[dict], Awaitable[None]]):
-        queue = await self._channel.declare_queue(queue_name, durable=True)
-
-        async def on_message(message: aio_pika.IncomingMessage):
-            async with message.process(requeue=False):
-                try:
-                    data = json.loads(message.body)
-                    receive_ts = time.time()
-                    if "timestamp" in data:
-                        latency = receive_ts - data["timestamp"]
-                        REQUEST_LATENCY.labels(method="amqp", scenario=queue_name).observe(latency)
-                    MESSAGE_SIZE.labels(method="amqp", scenario=queue_name).observe(len(message.body))
-                    await callback(data)
-                    REQUEST_COUNT.labels(method="amqp", scenario=queue_name, status="success").inc()
-                except Exception as exc:
-                    REQUEST_COUNT.labels(method="amqp", scenario=queue_name, status="error").inc()
-                    print(f"Error processing message: {exc}", flush=True)
-
-        await queue.consume(on_message)
-
-    async def stop(self):
-        if self._connection:
-            await self._connection.close()
+_EXCHANGE = "benchmark_exchange"
+_QUEUES = [
+    ("small_messages", "small"),
+    ("large_messages", "large"),
+    ("echo_messages", "echo"),
+]
 
 
-async def _noop_callback(data: dict):
-    pass
-
-
-async def main():
+def main():
     start_metrics_server(9092)
-    consumer = AMQPConsumer()
-    await consumer.connect()
+    params = pika.ConnectionParameters(
+        host="rabbitmq",
+        credentials=pika.PlainCredentials("guest", "guest"),
+        heartbeat=600,
+        blocked_connection_timeout=300,
+    )
+    connection = pika.BlockingConnection(params)
+    channel = connection.channel()
+
+    # Konsument sam deklaruje topologię i wiąże kolejki — niezależnie od kolejności
+    # startu producenta. Purge usuwa zaległości z poprzednich runów (chroni e2e latency).
+    channel.exchange_declare(exchange=_EXCHANGE, exchange_type="direct", durable=True)
+    for queue_name, routing_key in _QUEUES:
+        channel.queue_declare(queue=queue_name, durable=True)
+        channel.queue_bind(queue=queue_name, exchange=_EXCHANGE, routing_key=routing_key)
+        channel.queue_purge(queue_name)
+    channel.basic_qos(prefetch_count=100)
+
+    def on_message(chan, method, properties, body):
+        scenario = canonical_scenario(method.routing_key)
+        try:
+            data = json.loads(body)
+            if isinstance(data, dict) and "timestamp" in data:
+                latency = time.time() - data["timestamp"]
+                E2E_LATENCY.labels(method="amqp", scenario=scenario).observe(latency)
+            MESSAGE_SIZE.labels(method="amqp", scenario=scenario).observe(len(body))
+            REQUEST_COUNT.labels(method="amqp", scenario=scenario, status="success").inc()
+        except Exception as exc:
+            REQUEST_COUNT.labels(method="amqp", scenario=scenario, status="error").inc()
+            print(f"Error processing message: {exc}", flush=True)
+        finally:
+            # ACK po przetworzeniu (auto_ack=False)
+            chan.basic_ack(delivery_tag=method.delivery_tag)
+
+    for queue_name, _ in _QUEUES:
+        channel.basic_consume(queue=queue_name, on_message_callback=on_message, auto_ack=False)
+
     print("AMQP consumer connected, waiting for messages...", flush=True)
-    for queue_name in ("small_messages", "large_messages", "echo_messages"):
-        await consumer.start_consuming(queue_name, _noop_callback)
-    # Keep running
-    while True:
-        await asyncio.sleep(1)
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        channel.stop_consuming()
+    finally:
+        connection.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
