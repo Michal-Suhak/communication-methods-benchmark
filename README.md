@@ -50,9 +50,9 @@ Full run documentation: [`RUN_INSTRUCTION.md`](RUN_INSTRUCTION.md)
 ```
 .
 ├── shared/                     # Shared Pydantic models, data generator, Prometheus metrics
-├── rest/                       # FastAPI server + httpx client
-├── grpc_service/               # gRPC server + client; .proto in proto/
-├── graphql_service/            # Strawberry server + client
+├── rest/                       # FastAPI server
+├── grpc_service/               # gRPC server; .proto in proto/
+├── graphql_service/            # Strawberry server (metrics extension + DataLoader)
 ├── amqp_service/               # RabbitMQ consumer (pika, sync)
 ├── kafka_service/              # Kafka consumer (kafka-python, sync)
 ├── load_tests/                 # Locust — one file per protocol + locustfile_all.py
@@ -109,8 +109,8 @@ Scenario labels are canonical across all services: `small` / `large` / `echo`. S
 Grafana serves real-time observation *during* a test run. The scripts below are a separate post-processing pipeline that runs *after* all experiments finish: they merge raw Locust CSVs with Prometheus time-series, run statistical significance tests (Kruskal-Wallis, IQR outlier removal, 95% CI), and produce publication-quality 300 DPI charts suitable for a thesis — something Grafana cannot do.
 
 ```bash
-python scripts/collect_results.py   # output: results/locust_unified.csv + prometheus_metrics.csv
-python scripts/analyze_results.py   # output: statistical_analysis.csv + significance_tests.csv
+python scripts/collect_results.py   # output: locust_unified.csv + prometheus_metrics.csv + container_resources.csv
+python scripts/analyze_results.py   # output: statistical_analysis[_by_level].csv + significance tests + post-hoc
 python scripts/generate_charts.py   # output: results/charts/*.png + *.svg
 ```
 
@@ -119,9 +119,12 @@ python scripts/generate_charts.py   # output: results/charts/*.png + *.svg
 | `locust_unified.csv` | Merged Locust statistics (latency in **ms**) |
 | `prometheus_metrics.csv` | Prometheus time-series (latency in **s**), window matched to test run |
 | `statistical_analysis.csv` | Per-method stats over `Aggregated` rows: mean, median, std, IQR, p50/p95/p99 (same-percentile mean across repetitions), 95% CI |
+| `statistical_analysis_by_level.csv` | Same stats per (method, users) — source for the thesis result tables |
+| `significance_by_level.csv` + `posthoc_*_u{N}.csv` | Omnibus + post-hoc per load level |
+| `container_resources.csv` | Container CPU (cores) and RAM (bytes) time series from cAdvisor |
 | `significance_tests.csv` | Omnibus test (ANOVA or Kruskal-Wallis, chosen by Shapiro normality) |
 | `posthoc_tukey.csv` / `posthoc_dunn.csv` | Pairwise post-hoc comparisons (Tukey HSD / Dunn with Bonferroni) |
-| `results/charts/` | latency_bar, latency_boxplot, heatmap, radar |
+| `results/charts/` | latency_bar, latency_boxplot, heatmap, radar, throughput_vs_users, latency_vs_users, latency_vs_payload, spike_timeline, longrun_timeline, resources |
 
 ## Resource limits (per container)
 
