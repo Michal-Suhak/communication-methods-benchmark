@@ -44,11 +44,15 @@ run_measure() {
     --stop-timeout 10s --host="$host" 2>/dev/null || true
 
   echo "  [measure] ${dur}s → ${csv}"
+  # --exit-code-on-error 0: błędy pojedynczych żądań (oczekiwane np. przy spike) nie
+  # mogą przerywać całej kampanii przez set -e; odsetek błędów jest daną pomiarową w CSV.
   locust -f "$lf" --headless \
     -u "$users" -r "$rate" -t "${dur}s" \
     --stop-timeout 10s \
+    --exit-code-on-error 0 \
     --csv="$csv" \
-    --host="$host"
+    --host="$host" \
+    || echo "  WARN: locust zakończył się kodem $? dla ${csv} — kontynuuję kampanię"
 
   echo "  [cooldown] ${COOLDOWN_DURATION}s..."
   sleep "$COOLDOWN_DURATION"

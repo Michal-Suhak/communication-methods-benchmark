@@ -11,7 +11,7 @@ docker compose build
 
 # 2. Start infrastructure
 echo "[2/7] Starting infrastructure..."
-docker compose up -d rabbitmq zookeeper kafka prometheus grafana
+docker compose up -d rabbitmq zookeeper kafka prometheus grafana cadvisor
 echo "Waiting 30s for brokers to initialise..."
 sleep 30
 
@@ -35,9 +35,12 @@ docker compose run --rm locust bash /app/run_all_scenarios.sh
 
 # 6. Collect and analyse results
 echo "[6/7] Collecting and analysing results..."
-python scripts/collect_results.py
-python scripts/analyze_results.py
-python scripts/generate_charts.py
+# Preferuj lokalny venv projektu (ma przypięte zależności z scripts/requirements.txt).
+PYTHON_BIN="python3"
+[[ -x ".venv/bin/python" ]] && PYTHON_BIN=".venv/bin/python"
+"$PYTHON_BIN" scripts/collect_results.py
+"$PYTHON_BIN" scripts/analyze_results.py
+"$PYTHON_BIN" scripts/generate_charts.py
 
 # 7. Summary
 echo "[7/7] Done!"
