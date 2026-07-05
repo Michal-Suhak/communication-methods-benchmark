@@ -18,8 +18,8 @@ from shared.data_generator import (
 _DEFAULT_BOOTSTRAP = "kafka:9092"
 
 
-class KafkaUser(User):
-    wait_time = between(0.01, 0.05)
+class KafkaUserBase(User):
+    abstract = True
 
     def on_start(self):
         self._producer = KafkaProducer(
@@ -52,10 +52,18 @@ class KafkaUser(User):
             exception=exc,
         )
 
-    @task(6)
+
+class KafkaSmallUser(KafkaUserBase):
+    wait_time = between(0.01, 0.05)
+
+    @task
     def produce_small(self):
         body = generate_small_message().model_dump_json().encode()
         self._produce("produce_small", "small-messages", body)
+
+
+class KafkaLargeUser(KafkaUserBase):
+    wait_time = between(0.1, 0.5)
 
     def _produce_large(self, size_kb: int):
         body = generate_large_message(size_kb).model_dump_json().encode()

@@ -19,18 +19,18 @@ _EXCHANGE = "benchmark_exchange"
 _DEFAULT_URL = "amqp://guest:guest@rabbitmq:5672/"
 
 
-class AMQPUser(User):
-    wait_time = between(0.01, 0.05)
+class AMQPUserBase(User):
+    abstract = True
 
     def on_start(self):
         url = self.host or _DEFAULT_URL
-        # --host może być podane jako amqp://... (honorujemy je); inaczej domyślne.
+        # --host may be given as amqp://... (honoured); otherwise fall back to default.
         params = pika.URLParameters(url) if "://" in url else pika.ConnectionParameters(host=url)
         self._connection = pika.BlockingConnection(params)
         self._channel = self._connection.channel()
-        # Publisher confirms: basic_publish blokuje do potwierdzenia brokera,
-        # dzięki czemu mierzymy publish→ACK (symetrycznie do acks=all w Kafce),
-        # a nie tylko zapis do lokalnego bufora socketu.
+        # Publisher confirms: basic_publish blocks until the broker ACK, so we
+        # measure publish→ACK (symmetric to acks=all in Kafka) instead of just
+        # a write to the local socket buffer.
         self._channel.confirm_delivery()
         self._channel.exchange_declare(exchange=_EXCHANGE, exchange_type="direct", durable=True)
         for queue_name, routing_key in (("small_messages", "small"), ("large_messages", "large")):
@@ -64,10 +64,18 @@ class AMQPUser(User):
             exception=exc,
         )
 
-    @task(6)
+
+class AMQPSmallUser(AMQPUserBase):
+    wait_time = between(0.01, 0.05)
+
+    @task
     def publish_small(self):
         body = generate_small_message().model_dump_json().encode()
         self._publish("publish_small", "small", body)
+
+
+class AMQPLargeUser(AMQPUserBase):
+    wait_time = between(0.1, 0.5)
 
     def _publish_large(self, size_kb: int):
         body = generate_large_message(size_kb).model_dump_json().encode()

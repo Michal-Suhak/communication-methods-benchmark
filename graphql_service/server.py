@@ -26,8 +26,8 @@ from shared.metrics import (
 
 
 class MetricsExtension(SchemaExtension):
-    """Mierzy pełny czas operacji GraphQL (parsowanie + walidacja + wykonanie),
-    a nie tylko ciało resolvera. Zakres pomiaru spójny z REST/gRPC (pełna obsługa)."""
+    """Measures the full GraphQL operation time (parse + validate + execute),
+    not just the resolver body. Measurement scope consistent with REST/gRPC."""
 
     def on_operation(self):
         ACTIVE_CONNECTIONS.labels(method="graphql").inc()
@@ -68,12 +68,12 @@ class LargeResponseType:
     items: list[ItemType]
 
 
-# --- DataLoader: demonstracja rozwiązania problemu N+1 -----------------------
-# Bez DataLoadera pole `category` każdego itemu odpytywałoby źródło osobno
-# (N zapytań). DataLoader batchuje wszystkie klucze z jednego żądania w jedno
-# wywołanie `_batch_load_categories` (1 zapytanie).
+# --- DataLoader: demonstration of the N+1 problem solution -------------------
+# Without the DataLoader the `category` field of every item would query the
+# source separately (N queries). The DataLoader batches all keys from a single
+# request into one `_batch_load_categories` call (1 query).
 async def _batch_load_categories(keys: list[str]) -> list[str]:
-    # Symulacja jednego batchowego pobrania kategorii dla wielu tagów.
+    # Simulates a single batched category fetch for many tags.
     return [f"category::{k}" for k in keys]
 
 
@@ -110,7 +110,7 @@ class Query:
 
     @strawberry.field
     def get_large_enriched(self, size_kb: int = 50) -> EnrichedResponseType:
-        # Każdy item ma pole `category` rozwiązywane przez DataLoader (demo N+1).
+        # Every item has a `category` field resolved through the DataLoader (N+1 demo).
         large = generate_large_message(size_kb)
         return EnrichedResponseType(
             id=large.id,
@@ -143,7 +143,7 @@ schema = strawberry.Schema(
 
 
 async def get_context() -> dict:
-    # Nowy DataLoader na każde żądanie — batchowanie działa w obrębie jednego żądania.
+    # Fresh DataLoader per request — batching works within a single request.
     return {"category_loader": DataLoader(load_fn=_batch_load_categories)}
 
 

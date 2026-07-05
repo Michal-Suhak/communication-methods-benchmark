@@ -2,19 +2,19 @@
 set -euo pipefail
 
 # ============================================================================
-# Orkiestrator scenariuszy benchmarkowych.
+# Benchmark scenario orchestrator.
 #
-# Scenariusze (zgodne z planem KROK 9.1):
-#   throughput    — siatka obciążeń 10/100/500/1000, szybki ramp, 5 powtórzeń
-#   spike         — nagły skok do 2000 użytkowników (test backpressure/recovery)
-#   long_running  — 50 użytkowników przez dłuższy czas (dryf, memory leaks)
+# Scenarios:
+#   throughput    — load grid 10/100/500/1000, fast ramp, 5 repetitions
+#   spike         — sudden jump to 2000 users (backpressure/recovery test)
+#   long_running  — 50 users over a longer period (drift, memory leaks)
 #
-# Konwencja nazw CSV: <method>_u<USERS>_rep<REP>  (parsowana przez collect_results.py)
+# CSV naming convention: <method>_u<USERS>_rep<REP>  (parsed by collect_results.py)
 #
-# Zmienne środowiskowe (override):
+# Environment variables (override):
 #   TEST_DURATION (60)  WARMUP_DURATION (30)  COOLDOWN_DURATION (15)
 #   REPETITIONS (5)     SPIKE_REPS (3)        LONG_DURATION (300)  LONG_REPS (1)
-#   SCENARIOS ("throughput spike long_running")  — które scenariusze uruchomić
+#   SCENARIOS ("throughput spike long_running")  — which scenarios to run
 #   USER_LEVELS ("10 100 500 1000")
 # ============================================================================
 
@@ -44,8 +44,8 @@ run_measure() {
     --stop-timeout 10s --host="$host" 2>/dev/null || true
 
   echo "  [measure] ${dur}s → ${csv}"
-  # --exit-code-on-error 0: błędy pojedynczych żądań (oczekiwane np. przy spike) nie
-  # mogą przerywać całej kampanii przez set -e; odsetek błędów jest daną pomiarową w CSV.
+  # --exit-code-on-error 0: individual request failures (expected e.g. during spike)
+  # must not abort the whole campaign via set -e; the error rate is a measured value in CSV.
   locust -f "$lf" --headless \
     -u "$users" -r "$rate" -t "${dur}s" \
     --stop-timeout 10s \
@@ -69,7 +69,7 @@ for i in "${!METHODS[@]}"; do
         for USERS in $USER_LEVELS; do
           for REP in $(seq 1 "$REPETITIONS"); do
             echo "=== $METHOD | throughput | users=$USERS | rep=$REP ==="
-            # Szybki ramp (spawn ~1s) → minimalny udział fazy ramp w oknie pomiarowym.
+            # Fast ramp (spawn ~1s) → minimal ramp-phase share in the measurement window.
             run_measure "$LOCUST_FILE" "$HOST" "$USERS" "$USERS" "$TEST_DURATION" \
               "${RESULTS_DIR}/${METHOD}_u${USERS}_rep${REP}"
           done
@@ -78,7 +78,7 @@ for i in "${!METHODS[@]}"; do
       spike)
         for REP in $(seq 1 "$SPIKE_REPS"); do
           echo "=== $METHOD | spike | users=2000 | rep=$REP ==="
-          # Skok obciążenia: 2000 użytkowników z rampem 200/s (~10s do szczytu).
+          # Load spike: 2000 users with a 200/s ramp (~10s to peak).
           run_measure "$LOCUST_FILE" "$HOST" 2000 200 "$TEST_DURATION" \
             "${RESULTS_DIR}/${METHOD}_u2000_rep${REP}"
         done

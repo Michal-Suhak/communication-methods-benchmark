@@ -82,6 +82,8 @@ Implemented in `load_tests/run_all_scenarios.sh` (selectable via `SCENARIOS`, al
 
 Before each measurement: 30 s warmup (results discarded; separate Locust process — client connection pools are cold-started in the measured run), 15 s cooldown after the test.
 
+Every protocol uses the same two-class user structure: a *small* user class (wait 0.01–0.05 s; small messages, plus a 256 B `echo` task for the request-reply protocols) and a *large* user class (wait 0.1–0.5 s; 50 and 100 KB payloads). The echo variant runs only for REST/gRPC/GraphQL — a broker publish has no reply to echo back.
+
 ### What latency means per protocol
 
 - **REST / gRPC / GraphQL** — full client-side round-trip (Locust).

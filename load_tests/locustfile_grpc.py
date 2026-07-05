@@ -23,8 +23,8 @@ from shared.data_generator import (
 _DEFAULT_TARGET = "grpc-server:50051"
 
 
-class GrpcUser(User):
-    wait_time = between(0.01, 0.05)
+class GrpcUserBase(User):
+    abstract = True
 
     def on_start(self):
         self._channel = grpc.insecure_channel(
@@ -42,7 +42,21 @@ class GrpcUser(User):
         if channel is not None:
             channel.close()
 
-    @task(6)
+    def _fire(self, name: str, start: float, response_length: int, exc):
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        events.request.fire(
+            request_type="grpc",
+            name=name,
+            response_time=elapsed_ms,
+            response_length=response_length,
+            exception=exc,
+        )
+
+
+class GrpcSmallUser(GrpcUserBase):
+    wait_time = between(0.01, 0.05)
+
+    @task(3)
     def send_small(self):
         msg = generate_small_message()
         req = benchmark_pb2.SmallRequest(
@@ -59,14 +73,24 @@ class GrpcUser(User):
             response_length = response.ByteSize()
         except Exception as e:
             exc = e
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        events.request.fire(
-            request_type="grpc",
-            name="SendSmall",
-            response_time=elapsed_ms,
-            response_length=response_length,
-            exception=exc,
-        )
+        self._fire("SendSmall", start, response_length, exc)
+
+    @task(1)
+    def echo(self):
+        req = benchmark_pb2.EchoRequest(data=b"x" * 256)
+        start = time.perf_counter()
+        exc = None
+        response_length = 0
+        try:
+            response = self._stub.Echo(req)
+            response_length = response.ByteSize()
+        except Exception as e:
+            exc = e
+        self._fire("Echo", start, response_length, exc)
+
+
+class GrpcLargeUser(GrpcUserBase):
+    wait_time = between(0.1, 0.5)
 
     def _get_large(self, size_kb: int):
         req = benchmark_pb2.LargeRequest(id=str(uuid.uuid4()), size_kb=size_kb)
@@ -78,14 +102,7 @@ class GrpcUser(User):
             response_length = response.ByteSize()
         except Exception as e:
             exc = e
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        events.request.fire(
-            request_type="grpc",
-            name=f"GetLarge[{size_kb}kb]",
-            response_time=elapsed_ms,
-            response_length=response_length,
-            exception=exc,
-        )
+        self._fire(f"GetLarge[{size_kb}kb]", start, response_length, exc)
 
     @task(1)
     def get_large_base(self):

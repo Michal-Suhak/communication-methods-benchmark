@@ -28,10 +28,10 @@ def main():
         *_TOPICS,
         bootstrap_servers=_BOOTSTRAP,
         group_id="benchmark-group",
-        # latest: świeży/zrestartowany konsument widzi tylko nowe wiadomości,
-        # nie odtwarza zaległości z poprzednich runów (chroni e2e latency).
+        # latest: a fresh/restarted consumer sees only new messages and does not
+        # replay leftovers from previous runs (protects e2e latency).
         auto_offset_reset="latest",
-        # Commit okresowy zamiast po każdej wiadomości — nie ogranicza throughputu.
+        # Periodic commit instead of per-message — does not throttle throughput.
         enable_auto_commit=True,
         auto_commit_interval_ms=1000,
         max_poll_records=500,

@@ -46,10 +46,10 @@ def load_locust_stats() -> pd.DataFrame:
 
 
 def prometheus_window() -> tuple[int, int]:
-    """Okno [start, end] dopasowane do czasu testu, a nie do „ostatniej godziny".
+    """[start, end] window matched to the test run, not to "the last hour".
 
-    Kolejność: jawne PROM_START/PROM_END → rozpiętość czasów modyfikacji plików
-    wyników (z marginesem) → fallback PROM_LOOKBACK_SECONDS (domyślnie 1h).
+    Precedence: explicit PROM_START/PROM_END → modification-time span of the
+    result files (with a margin) → PROM_LOOKBACK_SECONDS fallback (default 1h).
     """
     now = int(time.time())
     start_env, end_env = os.getenv("PROM_START"), os.getenv("PROM_END")
@@ -79,6 +79,56 @@ def query_prometheus(promql: str, start: int, end: int, step: str = "15s") -> pd
     return pd.DataFrame(rows)
 
 
+def container_name_map() -> dict[str, str]:
+    """Map cAdvisor series ids (/docker/<hash>) to compose container names.
+
+    cAdvisor on Docker Desktop for macOS leaves the `name` label empty, so the
+    mapping has to come from the Docker CLI. Returns {} when Docker is not
+    reachable (resource series are then kept with the raw id).
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["docker", "ps", "--no-trunc", "--format", "{{.ID}},{{.Names}}"],
+            capture_output=True, text=True, timeout=10, check=True,
+        ).stdout
+    except Exception as exc:
+        print(f"  Warning: cannot map container ids to names ({exc}).")
+        return {}
+    mapping = {}
+    for line in out.splitlines():
+        cid, _, name = line.partition(",")
+        if cid and name:
+            mapping[f"/docker/{cid}"] = name
+    return mapping
+
+
+def collect_resources(start: int, end: int) -> pd.DataFrame:
+    """Container CPU (cores) and RAM (bytes) time series from cAdvisor."""
+    queries = {
+        "cpu_cores": 'rate(container_cpu_usage_seconds_total{id=~"/docker/.+"}[1m])',
+        "ram_bytes": 'container_memory_usage_bytes{id=~"/docker/.+"}',
+    }
+    names = container_name_map()
+    frames = []
+    for metric_name, promql in queries.items():
+        try:
+            df = query_prometheus(promql, start, end)
+        except Exception as exc:
+            print(f"  Warning: could not query {metric_name}: {exc}")
+            continue
+        if df.empty:
+            print(f"  Warning: query '{metric_name}' returned no data in the test window.")
+            continue
+        df["metric"] = metric_name
+        df["container"] = df["id"].map(names).fillna(df["id"])
+        frames.append(df[["timestamp", "value", "metric", "container"]])
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
 def main():
     RESULTS_DIR.mkdir(exist_ok=True)
 
@@ -86,14 +136,14 @@ def main():
     locust_df = load_locust_stats()
 
     start, end = prometheus_window()
-    print(f"Querying Prometheus (okno {end - start}s, od ts={start})...")
+    print(f"Querying Prometheus (window {end - start}s, from ts={start})...")
     prom_frames = []
     queries = {
-        # RPC/HTTP: latencja po stronie serwera
+        # RPC/HTTP: server-side latency
         "latency_p50": 'histogram_quantile(0.50, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
         "latency_p95": 'histogram_quantile(0.95, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
         "latency_p99": 'histogram_quantile(0.99, sum(rate(request_latency_seconds_bucket[1m])) by (le, method))',
-        # Messaging: latencja end-to-end (producent → konsument)
+        # Messaging: end-to-end latency (producer → consumer)
         "e2e_latency_p50": 'histogram_quantile(0.50, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
         "e2e_latency_p95": 'histogram_quantile(0.95, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
         "e2e_latency_p99": 'histogram_quantile(0.99, sum(rate(e2e_latency_seconds_bucket[1m])) by (le, method))',
@@ -103,7 +153,7 @@ def main():
         try:
             df = query_prometheus(promql, start, end)
             if df.empty:
-                print(f"  Uwaga: zapytanie '{metric_name}' nie zwróciło danych w oknie testu.")
+                print(f"  Warning: query '{metric_name}' returned no data in the test window.")
                 continue
             df["metric"] = metric_name
             prom_frames.append(df)
@@ -116,7 +166,14 @@ def main():
         prom_df.to_csv(out, index=False)
         print(f"  Saved Prometheus metrics → {out}")
     else:
-        print("  Brak danych z Prometheusa — sprawdź okno czasowe i czy serwisy były scrapowane.")
+        print("  No Prometheus data — check the time window and whether services were scraped.")
+
+    print("Collecting container resources (cAdvisor)...")
+    res_df = collect_resources(start, end)
+    if not res_df.empty:
+        out = RESULTS_DIR / "container_resources.csv"
+        res_df.to_csv(out, index=False)
+        print(f"  Saved container resources → {out}")
 
     if not locust_df.empty:
         out = RESULTS_DIR / "locust_unified.csv"

@@ -23,8 +23,8 @@ from shared.models import LargeMessage, SmallMessage
 
 app = FastAPI(title="REST Benchmark Server")
 
-# Ścieżki pomijane w pomiarze: scrape Prometheusa i health-check nie są ruchem
-# benchmarkowym i zaniżałyby/zaburzały histogram latencji oraz licznik żądań.
+# Paths excluded from measurement: Prometheus scrapes and health checks are not
+# benchmark traffic and would skew the latency histogram and request counter.
 _SKIP_PATHS = {"/metrics", "/api/health"}
 
 

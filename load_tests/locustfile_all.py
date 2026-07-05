@@ -1,21 +1,24 @@
-"""TYLKO smoke-test / interaktywne UI (--class-picker).
+"""Smoke-test / interactive UI (--class-picker) ONLY.
 
-NIE używać do pomiarów porównawczych: uruchomienie wszystkich klas User naraz
-miesza fire-and-forget/publish (AMQP/Kafka) z blokującymi round-tripami (REST/gRPC)
-w jednym procesie gevent, co zaburza latencję protokołów round-trip przez rywalizację
-o greenlety. Do pomiarów używaj pojedynczych locustfile'ów (run_all_scenarios.sh)."""
-from locustfile_amqp import AMQPUser
+Do NOT use for comparative measurements: running all User classes at once mixes
+fire-and-forget publishes (AMQP/Kafka) with blocking round-trips (REST/gRPC) in
+a single gevent process, which distorts round-trip latency through greenlet
+contention. For measurements use the per-protocol locustfiles (run_all_scenarios.sh)."""
+from locustfile_amqp import AMQPLargeUser, AMQPSmallUser
 from locustfile_graphql import GraphQLLargeUser, GraphQLSmallUser
-from locustfile_grpc import GrpcUser
-from locustfile_kafka import KafkaUser
+from locustfile_grpc import GrpcLargeUser, GrpcSmallUser
+from locustfile_kafka import KafkaLargeUser, KafkaSmallUser
 from locustfile_rest import RestLargeResponseUser, RestSmallMessageUser
 
 __all__ = [
     "RestSmallMessageUser",
     "RestLargeResponseUser",
-    "GrpcUser",
+    "GrpcSmallUser",
+    "GrpcLargeUser",
     "GraphQLSmallUser",
     "GraphQLLargeUser",
-    "AMQPUser",
-    "KafkaUser",
+    "AMQPSmallUser",
+    "AMQPLargeUser",
+    "KafkaSmallUser",
+    "KafkaLargeUser",
 ]

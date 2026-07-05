@@ -37,8 +37,8 @@ def main():
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
-    # Konsument sam deklaruje topologię i wiąże kolejki — niezależnie od kolejności
-    # startu producenta. Purge usuwa zaległości z poprzednich runów (chroni e2e latency).
+    # The consumer declares the topology and binds the queues itself — independent
+    # of producer start order. Purge drops leftovers from previous runs (protects e2e latency).
     channel.exchange_declare(exchange=_EXCHANGE, exchange_type="direct", durable=True)
     for queue_name, routing_key in _QUEUES:
         channel.queue_declare(queue=queue_name, durable=True)

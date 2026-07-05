@@ -26,9 +26,9 @@ from shared.metrics import (
 
 
 class MetricsInterceptor(grpc.ServerInterceptor):
-    """Mierzy pełny czas obsługi RPC (cały handler, włącznie ze streamingiem),
-    zamiast mikrosekundowej konstrukcji obiektu odpowiedzi. Dzięki temu zakres
-    pomiaru jest spójny z middleware REST (pełna obsługa po stronie serwera)."""
+    """Measures the full RPC handling time (whole handler, including streaming)
+    instead of the microsecond-scale response object construction. This keeps
+    the measurement scope consistent with the REST middleware."""
 
     def intercept_service(self, continuation, handler_call_details):
         handler = continuation(handler_call_details)

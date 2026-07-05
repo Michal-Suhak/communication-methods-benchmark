@@ -2,33 +2,36 @@ from __future__ import annotations
 
 from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
-# Buckets dobrane pod typowe latencje sieciowe w sieci lokalnej/Docker.
+# Buckets tuned for typical network latencies on a local/Docker network.
 _LATENCY_BUCKETS = [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
 
-# Latencja obsługi po stronie serwera (RPC/HTTP) ORAZ latencja publikacji (messaging).
-# UWAGA: dla porównań międzyprotokołowych autorytatywnym źródłem jest latencja
-# klienta mierzona przez Locust (pełny round-trip). Ta metryka opisuje czas
-# przetwarzania po stronie serwera/producenta i nie jest wprost porównywalna
-# między protokołami o różnym zakresie pomiaru.
+# Server-side handling latency (RPC/HTTP) AND publish latency (messaging).
+# NOTE: for cross-protocol comparisons the authoritative source is the client
+# latency measured by Locust (full round-trip). This metric describes the
+# server/producer processing time and is not directly comparable between
+# protocols with a different measurement scope.
 REQUEST_LATENCY = Histogram(
     "request_latency_seconds",
-    "Latencja obsługi żądania po stronie serwera/producenta",
+    "Server/producer-side request handling latency",
     ["method", "scenario"],
     buckets=_LATENCY_BUCKETS,
 )
 
-# Latencja end-to-end (od publikacji wiadomości do odebrania przez konsumenta).
-# Osobna metryka, aby NIE mieszać jej z latencją publikacji (request_latency_seconds).
+# End-to-end latency (message publish → consumption by the consumer).
+# Separate metric so it is never mixed with publish latency (request_latency_seconds).
+# Extended buckets: under spike load the queue/log backlog can push e2e far beyond
+# the 5 s ceiling of the request-latency buckets.
+_E2E_BUCKETS = _LATENCY_BUCKETS + [10.0, 30.0, 60.0]
 E2E_LATENCY = Histogram(
     "e2e_latency_seconds",
-    "Latencja end-to-end: od timestampu w wiadomości do odebrania przez konsumenta",
+    "End-to-end latency: from the message timestamp to consumption",
     ["method", "scenario"],
-    buckets=_LATENCY_BUCKETS,
+    buckets=_E2E_BUCKETS,
 )
 
 REQUEST_COUNT = Counter(
     "request_total",
-    "Całkowita liczba żądań",
+    "Total number of requests",
     ["method", "scenario", "status"],
 )
 
@@ -41,7 +44,7 @@ REQUEST_COUNT = Counter(
 # (JSON vs protobuf vs selected GraphQL fields), not a different measurement definition.
 MESSAGE_SIZE = Histogram(
     "message_size_bytes",
-    "Rozmiar zserializowanego ładunku benchmarkowego w bajtach",
+    "Serialized benchmark payload size in bytes",
     ["method", "scenario"],
 )
 
@@ -50,20 +53,21 @@ MESSAGE_SIZE = Histogram(
 # Consumers (AMQP/Kafka): 1 while the broker connection is active, 0 after close.
 ACTIVE_CONNECTIONS = Gauge(
     "active_connections",
-    "Serwery: żądania in-flight; konsumenci: status połączenia z brokerem",
+    "Servers: in-flight requests; consumers: broker connection status",
     ["method"],
 )
 
-# Kanoniczne nazwy scenariuszy — wspólne dla wszystkich serwisów, aby serie
-# Prometheusa pokrywały się między protokołami (REST/gRPC/GraphQL/AMQP/Kafka).
+# Canonical scenario names — shared by all services so that Prometheus series
+# align across protocols (REST/gRPC/GraphQL/AMQP/Kafka).
 SCENARIO_SMALL = "small"
 SCENARIO_LARGE = "large"
 SCENARIO_ECHO = "echo"
 
 
 def canonical_scenario(raw: str) -> str:
-    """Mapuje dowolną etykietę (ścieżka HTTP, nazwa kolejki/topiku, nazwa RPC/operacji)
-    na kanoniczne small/large/echo. Zwraca 'other' dla nierozpoznanych (np. health, metrics)."""
+    """Map any label (HTTP path, queue/topic name, RPC/operation name) to the
+    canonical small/large/echo. Returns 'other' for unrecognized ones
+    (e.g. health, metrics)."""
     s = raw.lower()
     if "small" in s:
         return SCENARIO_SMALL
