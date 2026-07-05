@@ -40,11 +40,15 @@ class GraphQLSmallUser(HttpUser):
             name="mutation:sendSmall",
         )
 
+    _MUTATION_ECHO = """
+    mutation($data: String!) { echo(data: $data) }
+    """
+
     @task(1)
     def echo(self):
         self.client.post(
             "/graphql",
-            json={"query": 'mutation { echo(data: "benchmark-echo-payload") }'},
+            json={"query": self._MUTATION_ECHO, "variables": {"data": "x" * 256}},
             name="mutation:echo",
         )
 

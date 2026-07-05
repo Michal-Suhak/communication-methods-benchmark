@@ -125,7 +125,7 @@ def _line_vs_users(by_level: pd.DataFrame, value_col: str, ylabel: str, title: s
     _save(fig, name)
 
 
-_PAYLOAD_RE = re.compile(r"(?:size_kb=|\[(?:full,)?)(\d+)\s*kb?\]?", re.IGNORECASE)
+_PAYLOAD_RE = re.compile(r"(?:size_kb=|\[(?:full,)?)(\d+)\s*(?:kb)?\]?", re.IGNORECASE)
 
 
 def latency_vs_payload(raw: pd.DataFrame):

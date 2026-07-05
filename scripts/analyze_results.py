@@ -58,7 +58,11 @@ def describe(df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
     rows = []
     for key, grp in df.groupby(group_cols):
         key = key if isinstance(key, tuple) else (key,)
-        values = iqr_filter(grp[METRIC_COL].dropna())
+        raw_values = grp[METRIC_COL].dropna()
+        values = iqr_filter(raw_values)
+        dropped = len(raw_values) - len(values)
+        if dropped:
+            print(f"  IQR: dropped {dropped}/{len(raw_values)} samples in {key}.")
         if len(values) < 3:
             print(f"  Skipping {key}: not enough samples (n={len(values)}).")
             continue
@@ -103,7 +107,9 @@ def significance_tests(df: pd.DataFrame):
     (Bonferroni).
     """
     groups = {m: g[METRIC_COL].dropna().values for m, g in df.groupby("method")}
-    groups = {m: v for m, v in groups.items() if len(v) > 0}
+    # Below 3 observations per group an omnibus test has no power
+    # (e.g. long_running with a single repetition).
+    groups = {m: v for m, v in groups.items() if len(v) >= 3}
     if len(groups) < 2:
         return {}, None
 
