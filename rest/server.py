@@ -13,6 +13,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from shared.data_generator import generate_large_message
 from shared.metrics import (
+    ACTIVE_CONNECTIONS,
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,
@@ -31,15 +32,24 @@ _SKIP_PATHS = {"/metrics", "/api/health"}
 async def metrics_middleware(request: Request, call_next):
     if request.url.path in _SKIP_PATHS:
         return await call_next(request)
-    start = time.perf_counter()
-    response = await call_next(request)
-    elapsed = time.perf_counter() - start
     method_label = "rest"
     scenario = canonical_scenario(request.url.path)
+    ACTIVE_CONNECTIONS.labels(method=method_label).inc()
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    finally:
+        ACTIVE_CONNECTIONS.labels(method=method_label).dec()
+    elapsed = time.perf_counter() - start
     REQUEST_LATENCY.labels(method=method_label, scenario=scenario).observe(elapsed)
-    content_length = response.headers.get("content-length")
-    if content_length:
-        MESSAGE_SIZE.labels(method=method_label, scenario=scenario).observe(int(content_length))
+    # Unified payload-size semantics: small = client request payload,
+    # large/echo = server response payload (see shared/metrics.py).
+    if scenario == "small":
+        size_source = request.headers.get("content-length")
+    else:
+        size_source = response.headers.get("content-length")
+    if size_source:
+        MESSAGE_SIZE.labels(method=method_label, scenario=scenario).observe(int(size_source))
     status = "success" if response.status_code < 400 else "error"
     REQUEST_COUNT.labels(method=method_label, scenario=scenario, status=status).inc()
     # JSON log to stdout

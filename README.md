@@ -9,8 +9,8 @@ A reproducible, containerized environment for benchmarking five communication me
 | REST | HTTP/1.1 | 8001 | FastAPI + httpx |
 | gRPC | HTTP/2 | 50051 | grpcio |
 | GraphQL | HTTP/1.1 | 8003 | Strawberry + FastAPI |
-| AMQP | AMQP 0-9-1 | 5672 | aio-pika + RabbitMQ |
-| Kafka | TCP | 9092 | aiokafka + Confluent Kafka |
+| AMQP | AMQP 0-9-1 | 5672 | pika + RabbitMQ |
+| Kafka | TCP | 9092 | kafka-python + Confluent Kafka |
 
 Load testing: [Locust](https://locust.io) · Metrics: [Prometheus](https://prometheus.io) · Visualization: [Grafana](https://grafana.com)
 
@@ -53,8 +53,8 @@ Full run documentation: [`RUN_INSTRUCTION.md`](RUN_INSTRUCTION.md)
 ├── rest/                       # FastAPI server + httpx client
 ├── grpc_service/               # gRPC server + client; .proto in proto/
 ├── graphql_service/            # Strawberry server + client
-├── amqp_service/               # RabbitMQ producer + consumer (aio-pika)
-├── kafka_service/              # Kafka producer + consumer (aiokafka)
+├── amqp_service/               # RabbitMQ consumer (pika, sync)
+├── kafka_service/              # Kafka consumer (kafka-python, sync)
 ├── load_tests/                 # Locust — one file per protocol + locustfile_all.py
 ├── monitoring/
 │   ├── prometheus/prometheus.yml
@@ -76,9 +76,9 @@ Implemented in `load_tests/run_all_scenarios.sh` (selectable via `SCENARIOS`, al
 
 | Scenario | Payload | Users | Duration | Repetitions |
 |----------|---------|-------|----------|-------------|
-| `throughput` (small + large task mix) | ~100–500 B / ~50 KB | 10 → 100 → 500 → 1000 (`USER_LEVELS`) | 60 s / level (`TEST_DURATION`) | 5 (`REPETITIONS`) |
-| `spike` | ~100–500 B / ~50 KB | 2000 (ramp 200/s ≈ 10 s) | 60 s peak | 3 (`SPIKE_REPS`) |
-| `long_running` | ~100–500 B / ~50 KB | 50 (steady) | 300 s default, plan: 1800 s (`LONG_DURATION`) | 1 (`LONG_REPS`) |
+| `throughput` (small + large task mix) | ~100–500 B / 50 and 100 KB | 10 → 100 → 500 → 1000 (`USER_LEVELS`) | 60 s / level (`TEST_DURATION`) | 5 (`REPETITIONS`) |
+| `spike` | ~100–500 B / 50 and 100 KB | 2000 (ramp 200/s ≈ 10 s) | 60 s peak | 3 (`SPIKE_REPS`) |
+| `long_running` | ~100–500 B / 50 and 100 KB | 50 (steady) | 300 s default, plan: 1800 s (`LONG_DURATION`) | 1 (`LONG_REPS`) |
 
 Before each measurement: 30 s warmup (results discarded; separate Locust process — client connection pools are cold-started in the measured run), 15 s cooldown after the test.
 
@@ -95,8 +95,8 @@ Before each measurement: 30 s warmup (results discarded; separate Locust process
 | `request_latency_seconds` | Histogram | `method`, `scenario` — server-side processing time (full request scope: REST middleware, gRPC interceptor, GraphQL schema extension) |
 | `e2e_latency_seconds` | Histogram | `method`, `scenario` — producer→consumer end-to-end (AMQP/Kafka) |
 | `request_total` | Counter | `method`, `scenario`, `status` |
-| `message_size_bytes` | Histogram | `method`, `scenario` |
-| `active_connections` | Gauge | `method` |
+| `message_size_bytes` | Histogram | `method`, `scenario` — serialized benchmark payload: `small` = client request/message, `large` = server response/message |
+| `active_connections` | Gauge | `method` — servers: in-flight requests; consumers: 1 while broker connection is active |
 
 Scenario labels are canonical across all services: `small` / `large` / `echo`. Scrape interval: 5 s. Metrics ports: REST=8001, gRPC=9091, GraphQL=8003, AMQP=9092, Kafka=9093. Container CPU/RAM comes from **cAdvisor** (port 8080).
 

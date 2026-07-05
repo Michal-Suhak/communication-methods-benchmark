@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from kafka import KafkaConsumer as _KafkaConsumer
 
 from shared.metrics import (
+    ACTIVE_CONNECTIONS,
     E2E_LATENCY,
     MESSAGE_SIZE,
     REQUEST_COUNT,
@@ -36,18 +37,24 @@ def main():
         max_poll_records=500,
     )
     print(f"Kafka consumer started, consuming {_TOPICS}", flush=True)
-    for msg in consumer:
-        scenario = canonical_scenario(msg.topic)
-        try:
-            data = json.loads(msg.value)
-            if isinstance(data, dict) and "timestamp" in data:
-                latency = time.time() - data["timestamp"]
-                E2E_LATENCY.labels(method="kafka", scenario=scenario).observe(latency)
-            MESSAGE_SIZE.labels(method="kafka", scenario=scenario).observe(len(msg.value))
-            REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="success").inc()
-        except Exception as exc:
-            REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="error").inc()
-            print(f"Error processing message: {exc}", flush=True)
+    # Gauge semantics for consumers: 1 while the broker connection is active.
+    ACTIVE_CONNECTIONS.labels(method="kafka").set(1)
+    try:
+        for msg in consumer:
+            scenario = canonical_scenario(msg.topic)
+            try:
+                data = json.loads(msg.value)
+                if isinstance(data, dict) and "timestamp" in data:
+                    latency = time.time() - data["timestamp"]
+                    E2E_LATENCY.labels(method="kafka", scenario=scenario).observe(latency)
+                MESSAGE_SIZE.labels(method="kafka", scenario=scenario).observe(len(msg.value))
+                REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="success").inc()
+            except Exception as exc:
+                REQUEST_COUNT.labels(method="kafka", scenario=scenario, status="error").inc()
+                print(f"Error processing message: {exc}", flush=True)
+    finally:
+        ACTIVE_CONNECTIONS.labels(method="kafka").set(0)
+        consumer.close()
 
 
 if __name__ == "__main__":

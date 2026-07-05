@@ -6,7 +6,11 @@ sys.path.insert(0, "/app")
 
 from locust import HttpUser, between, task
 
-from shared.data_generator import generate_large_message, generate_small_message
+from shared.data_generator import (
+    LARGE_PAYLOAD_BASE_KB,
+    LARGE_PAYLOAD_EXTENDED_KB,
+    generate_small_message,
+)
 
 
 class RestSmallMessageUser(HttpUser):
@@ -34,10 +38,14 @@ class RestLargeResponseUser(HttpUser):
     host = "http://rest-server:8001"
     wait_time = between(0.1, 0.5)
 
-    @task
-    def get_large_50kb(self):
-        self.client.post("/api/large?size_kb=50", name="/api/large?size_kb=50")
+    def _get_large(self, size_kb: int):
+        url = f"/api/large?size_kb={size_kb}"
+        self.client.post(url, name=url)
 
     @task
-    def get_large_100kb(self):
-        self.client.post("/api/large?size_kb=100", name="/api/large?size_kb=100")
+    def get_large_base(self):
+        self._get_large(LARGE_PAYLOAD_BASE_KB)
+
+    @task
+    def get_large_extended(self):
+        self._get_large(LARGE_PAYLOAD_EXTENDED_KB)

@@ -16,6 +16,7 @@ from grpc_reflection.v1alpha import reflection
 from generated import benchmark_pb2, benchmark_pb2_grpc
 from shared.data_generator import generate_large_message
 from shared.metrics import (
+    ACTIVE_CONNECTIONS,
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,
@@ -68,14 +69,18 @@ class MetricsInterceptor(grpc.ServerInterceptor):
             REQUEST_COUNT.labels(method="grpc", scenario=scenario, status=status).inc()
 
         def measured(request_or_iterator, context):
+            ACTIVE_CONNECTIONS.labels(method="grpc").inc()
             start = time.perf_counter()
             try:
                 result = behavior(request_or_iterator, context)
             except Exception:
                 _record(start, "error")
+                ACTIVE_CONNECTIONS.labels(method="grpc").dec()
                 raise
             if resp_stream:
                 def gen():
+                    # For streaming RPCs the request stays in flight until the
+                    # response stream is fully consumed.
                     try:
                         for item in result:
                             yield item
@@ -84,9 +89,12 @@ class MetricsInterceptor(grpc.ServerInterceptor):
                         raise
                     else:
                         _record(start, "success")
+                    finally:
+                        ACTIVE_CONNECTIONS.labels(method="grpc").dec()
 
                 return gen()
             _record(start, "success")
+            ACTIVE_CONNECTIONS.labels(method="grpc").dec()
             return result
 
         return factory(

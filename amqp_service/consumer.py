@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pika
 
 from shared.metrics import (
+    ACTIVE_CONNECTIONS,
     E2E_LATENCY,
     MESSAGE_SIZE,
     REQUEST_COUNT,
@@ -65,11 +66,14 @@ def main():
         channel.basic_consume(queue=queue_name, on_message_callback=on_message, auto_ack=False)
 
     print("AMQP consumer connected, waiting for messages...", flush=True)
+    # Gauge semantics for consumers: 1 while the broker connection is active.
+    ACTIVE_CONNECTIONS.labels(method="amqp").set(1)
     try:
         channel.start_consuming()
     except KeyboardInterrupt:
         channel.stop_consuming()
     finally:
+        ACTIVE_CONNECTIONS.labels(method="amqp").set(0)
         connection.close()
 
 

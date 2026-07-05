@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -16,6 +17,7 @@ from strawberry.fastapi import GraphQLRouter
 
 from shared.data_generator import generate_large_message
 from shared.metrics import (
+    ACTIVE_CONNECTIONS,
     MESSAGE_SIZE,
     REQUEST_COUNT,
     REQUEST_LATENCY,
@@ -28,15 +30,27 @@ class MetricsExtension(SchemaExtension):
     a nie tylko ciało resolvera. Zakres pomiaru spójny z REST/gRPC (pełna obsługa)."""
 
     def on_operation(self):
+        ACTIVE_CONNECTIONS.labels(method="graphql").inc()
         start = time.perf_counter()
-        yield
+        try:
+            yield
+        finally:
+            ACTIVE_CONNECTIONS.labels(method="graphql").dec()
+        elapsed = time.perf_counter() - start
         ctx = self.execution_context
         scenario = canonical_scenario(ctx.query or "")
         status = "error" if (ctx.result and ctx.result.errors) else "success"
-        REQUEST_LATENCY.labels(method="graphql", scenario=scenario).observe(
-            time.perf_counter() - start
-        )
+        REQUEST_LATENCY.labels(method="graphql", scenario=scenario).observe(elapsed)
         REQUEST_COUNT.labels(method="graphql", scenario=scenario, status=status).inc()
+        # Unified payload-size semantics: large = serialized response data.
+        # Serialization happens AFTER the latency observation, but still adds
+        # a small (~0.2 ms) overhead to the request lifecycle — acceptable and
+        # symmetric across repetitions; without it GraphQL would have no
+        # response-size measurement at all (the response shape depends on the
+        # fields selected by the client, which is the essence of GraphQL).
+        if scenario == "large" and ctx.result and ctx.result.data:
+            size = len(json.dumps(ctx.result.data, separators=(",", ":")))
+            MESSAGE_SIZE.labels(method="graphql", scenario="large").observe(size)
 
 
 @strawberry.type

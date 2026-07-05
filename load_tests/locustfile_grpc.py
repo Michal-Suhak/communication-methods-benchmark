@@ -14,7 +14,11 @@ import grpc
 import benchmark_pb2        # loaded from /app/grpc_service/generated via sys.path
 import benchmark_pb2_grpc   # its internal "import benchmark_pb2" now hits sys.modules
 
-from shared.data_generator import generate_small_message
+from shared.data_generator import (
+    LARGE_PAYLOAD_BASE_KB,
+    LARGE_PAYLOAD_EXTENDED_KB,
+    generate_small_message,
+)
 
 _DEFAULT_TARGET = "grpc-server:50051"
 
@@ -38,7 +42,7 @@ class GrpcUser(User):
         if channel is not None:
             channel.close()
 
-    @task(3)
+    @task(6)
     def send_small(self):
         msg = generate_small_message()
         req = benchmark_pb2.SmallRequest(
@@ -64,9 +68,8 @@ class GrpcUser(User):
             exception=exc,
         )
 
-    @task(1)
-    def get_large(self):
-        req = benchmark_pb2.LargeRequest(id=str(uuid.uuid4()), size_kb=50)
+    def _get_large(self, size_kb: int):
+        req = benchmark_pb2.LargeRequest(id=str(uuid.uuid4()), size_kb=size_kb)
         start = time.perf_counter()
         exc = None
         response_length = 0
@@ -78,8 +81,16 @@ class GrpcUser(User):
         elapsed_ms = (time.perf_counter() - start) * 1000
         events.request.fire(
             request_type="grpc",
-            name="GetLarge",
+            name=f"GetLarge[{size_kb}kb]",
             response_time=elapsed_ms,
             response_length=response_length,
             exception=exc,
         )
+
+    @task(1)
+    def get_large_base(self):
+        self._get_large(LARGE_PAYLOAD_BASE_KB)
+
+    @task(1)
+    def get_large_extended(self):
+        self._get_large(LARGE_PAYLOAD_EXTENDED_KB)

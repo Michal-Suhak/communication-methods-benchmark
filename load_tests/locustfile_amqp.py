@@ -8,7 +8,12 @@ sys.path.insert(0, "/app")
 import pika
 from locust import User, between, events, task
 
-from shared.data_generator import generate_large_message, generate_small_message
+from shared.data_generator import (
+    LARGE_PAYLOAD_BASE_KB,
+    LARGE_PAYLOAD_EXTENDED_KB,
+    generate_large_message,
+    generate_small_message,
+)
 
 _EXCHANGE = "benchmark_exchange"
 _DEFAULT_URL = "amqp://guest:guest@rabbitmq:5672/"
@@ -59,12 +64,19 @@ class AMQPUser(User):
             exception=exc,
         )
 
-    @task(3)
+    @task(6)
     def publish_small(self):
         body = generate_small_message().model_dump_json().encode()
         self._publish("publish_small", "small", body)
 
+    def _publish_large(self, size_kb: int):
+        body = generate_large_message(size_kb).model_dump_json().encode()
+        self._publish(f"publish_large[{size_kb}kb]", "large", body)
+
     @task(1)
-    def publish_large(self):
-        body = generate_large_message(50).model_dump_json().encode()
-        self._publish("publish_large", "large", body)
+    def publish_large_base(self):
+        self._publish_large(LARGE_PAYLOAD_BASE_KB)
+
+    @task(1)
+    def publish_large_extended(self):
+        self._publish_large(LARGE_PAYLOAD_EXTENDED_KB)

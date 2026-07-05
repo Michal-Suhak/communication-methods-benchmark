@@ -8,7 +8,12 @@ sys.path.insert(0, "/app")
 from kafka import KafkaProducer
 from locust import User, between, events, task
 
-from shared.data_generator import generate_large_message, generate_small_message
+from shared.data_generator import (
+    LARGE_PAYLOAD_BASE_KB,
+    LARGE_PAYLOAD_EXTENDED_KB,
+    generate_large_message,
+    generate_small_message,
+)
 
 _DEFAULT_BOOTSTRAP = "kafka:9092"
 
@@ -47,12 +52,19 @@ class KafkaUser(User):
             exception=exc,
         )
 
-    @task(3)
+    @task(6)
     def produce_small(self):
         body = generate_small_message().model_dump_json().encode()
         self._produce("produce_small", "small-messages", body)
 
+    def _produce_large(self, size_kb: int):
+        body = generate_large_message(size_kb).model_dump_json().encode()
+        self._produce(f"produce_large[{size_kb}kb]", "large-messages", body)
+
     @task(1)
-    def produce_large(self):
-        body = generate_large_message(50).model_dump_json().encode()
-        self._produce("produce_large", "large-messages", body)
+    def produce_large_base(self):
+        self._produce_large(LARGE_PAYLOAD_BASE_KB)
+
+    @task(1)
+    def produce_large_extended(self):
+        self._produce_large(LARGE_PAYLOAD_EXTENDED_KB)

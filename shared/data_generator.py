@@ -11,6 +11,12 @@ _ADJECTIVES = ["fast", "slow", "bright", "dark", "heavy", "light", "warm", "cool
 _NOUNS = ["widget", "gadget", "device", "module", "component", "sensor", "unit", "board", "chip", "node"]
 _TAGS = ["electronics", "hardware", "iot", "sensor", "network", "cloud", "edge", "embedded", "wireless", "digital"]
 
+# Canonical payload sizes (KB) for the "large" scenario. Single source of truth
+# for ALL load tests — every protocol must exercise exactly these sizes, so that
+# cross-protocol comparisons cover identical payloads.
+LARGE_PAYLOAD_BASE_KB = 50
+LARGE_PAYLOAD_EXTENDED_KB = 100
+
 
 def _random_string(length: int) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))

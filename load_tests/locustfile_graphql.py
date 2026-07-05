@@ -6,7 +6,11 @@ sys.path.insert(0, "/app")
 
 from locust import HttpUser, between, task
 
-from shared.data_generator import generate_small_message
+from shared.data_generator import (
+    LARGE_PAYLOAD_BASE_KB,
+    LARGE_PAYLOAD_EXTENDED_KB,
+    generate_small_message,
+)
 
 
 class GraphQLSmallUser(HttpUser):
@@ -60,18 +64,25 @@ class GraphQLLargeUser(HttpUser):
     }
     """
 
-    @task(1)
-    def get_large_full(self):
+    def _get_large(self, query: str, variant: str, size_kb: int):
         self.client.post(
             "/graphql",
-            json={"query": self._QUERY_FULL, "variables": {"sizeKb": 50}},
-            name="query:getLarge[full]",
+            json={"query": query, "variables": {"sizeKb": size_kb}},
+            name=f"query:getLarge[{variant},{size_kb}kb]",
         )
 
     @task(1)
-    def get_large_partial(self):
-        self.client.post(
-            "/graphql",
-            json={"query": self._QUERY_PARTIAL, "variables": {"sizeKb": 50}},
-            name="query:getLarge[partial]",
-        )
+    def get_large_full_base(self):
+        self._get_large(self._QUERY_FULL, "full", LARGE_PAYLOAD_BASE_KB)
+
+    @task(1)
+    def get_large_full_extended(self):
+        self._get_large(self._QUERY_FULL, "full", LARGE_PAYLOAD_EXTENDED_KB)
+
+    @task(1)
+    def get_large_partial_base(self):
+        self._get_large(self._QUERY_PARTIAL, "partial", LARGE_PAYLOAD_BASE_KB)
+
+    @task(1)
+    def get_large_partial_extended(self):
+        self._get_large(self._QUERY_PARTIAL, "partial", LARGE_PAYLOAD_EXTENDED_KB)

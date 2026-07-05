@@ -32,15 +32,25 @@ REQUEST_COUNT = Counter(
     ["method", "scenario", "status"],
 )
 
+# Unified semantics (shared by all protocols): size of the SERIALIZED BENCHMARK
+# PAYLOAD in bytes —
+#   scenario=small → payload sent BY THE CLIENT (SmallMessage / request),
+#   scenario=large → payload returned BY THE SERVER (LargeMessage / response),
+#   scenario=echo  → size of the echoed data.
+# Differences between protocols reflect ONLY the serialization format
+# (JSON vs protobuf vs selected GraphQL fields), not a different measurement definition.
 MESSAGE_SIZE = Histogram(
     "message_size_bytes",
-    "Rozmiar wiadomości w bajtach",
+    "Rozmiar zserializowanego ładunku benchmarkowego w bajtach",
     ["method", "scenario"],
 )
 
+# Servers (REST/gRPC/GraphQL): number of requests/operations currently being
+# processed (in-flight) — grows under saturation, exposes queueing.
+# Consumers (AMQP/Kafka): 1 while the broker connection is active, 0 after close.
 ACTIVE_CONNECTIONS = Gauge(
     "active_connections",
-    "Aktywne połączenia",
+    "Serwery: żądania in-flight; konsumenci: status połączenia z brokerem",
     ["method"],
 )
 
