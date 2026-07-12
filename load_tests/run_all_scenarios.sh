@@ -13,7 +13,7 @@ set -euo pipefail
 #
 # Environment variables (override):
 #   TEST_DURATION (60)  WARMUP_DURATION (30)  COOLDOWN_DURATION (15)
-#   REPETITIONS (5)     SPIKE_REPS (3)        LONG_DURATION (300)  LONG_REPS (1)
+#   REPETITIONS (5)     SPIKE_REPS (3)        LONG_DURATION (300)  LONG_REPS (3)
 #   SCENARIOS ("throughput spike long_running")  — which scenarios to run
 #   USER_LEVELS ("10 100 500 1000")
 # ============================================================================
@@ -25,7 +25,7 @@ RESULTS_DIR="${RESULTS_DIR:-/app/results}"
 REPETITIONS="${REPETITIONS:-5}"
 SPIKE_REPS="${SPIKE_REPS:-3}"
 LONG_DURATION="${LONG_DURATION:-300}"
-LONG_REPS="${LONG_REPS:-1}"
+LONG_REPS="${LONG_REPS:-3}"
 USER_LEVELS="${USER_LEVELS:-10 100 500 1000}"
 SCENARIOS="${SCENARIOS:-throughput spike long_running}"
 

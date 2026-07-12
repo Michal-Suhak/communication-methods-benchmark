@@ -78,7 +78,7 @@ Implemented in `load_tests/run_all_scenarios.sh` (selectable via `SCENARIOS`, al
 |----------|---------|-------|----------|-------------|
 | `throughput` (small + large task mix) | ~100–500 B / 50 and 100 KB | 10 → 100 → 500 → 1000 (`USER_LEVELS`) | 60 s / level (`TEST_DURATION`) | 5 (`REPETITIONS`) |
 | `spike` | ~100–500 B / 50 and 100 KB | 2000 (ramp 200/s ≈ 10 s) | 60 s peak | 3 (`SPIKE_REPS`) |
-| `long_running` | ~100–500 B / 50 and 100 KB | 50 (steady) | 300 s default, plan: 1800 s (`LONG_DURATION`) | 1 (`LONG_REPS`) |
+| `long_running` | ~100–500 B / 50 and 100 KB | 50 (steady) | 300 s default, plan: 1800 s (`LONG_DURATION`) | 3 (`LONG_REPS`) |
 
 Before each measurement: 30 s warmup (results discarded; separate Locust process — client connection pools are cold-started in the measured run), 15 s cooldown after the test.
 

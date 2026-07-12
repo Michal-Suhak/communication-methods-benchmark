@@ -60,7 +60,7 @@ bash scripts/run_experiment.sh
 # build → start → all scenarios → analysis → charts
 ```
 
-Scenario knobs (env vars for `run_all_scenarios.sh`): `SCENARIOS="throughput spike long_running"`, `USER_LEVELS="10 100 500 1000"`, `REPETITIONS=5`, `SPIKE_REPS=3`, `LONG_DURATION=300` (set `1800` for the full 30-min plan), `LONG_REPS=1`.
+Scenario knobs (env vars for `run_all_scenarios.sh`): `SCENARIOS="throughput spike long_running"`, `USER_LEVELS="10 100 500 1000"`, `REPETITIONS=5`, `SPIKE_REPS=3`, `LONG_DURATION=300` (set `1800` for the full 30-min plan), `LONG_REPS=3`.
 
 ---
 
