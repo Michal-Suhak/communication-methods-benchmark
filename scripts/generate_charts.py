@@ -264,10 +264,10 @@ def main():
             by_level = pd.DataFrame()
         if not by_level.empty:
             print("Generating per-level line charts...")
-            _line_vs_users(by_level, "throughput_rps", "Throughput (req/s)",
-                           "Throughput vs concurrent users", "throughput_vs_users")
-            _line_vs_users(by_level, "p50", "Median latency (ms)",
-                           "Median latency vs concurrent users", "latency_vs_users")
+            _line_vs_users(by_level, "throughput_rps", "Przepustowość (req/s)",
+                           "Przepustowość a liczba użytkowników", "throughput_vs_users")
+            _line_vs_users(by_level, "p50", "Mediana opóźnienia (ms)",
+                           "Mediana opóźnienia a liczba użytkowników", "latency_vs_users")
 
     if locust_path.exists():
         raw_all = pd.read_csv(locust_path)
