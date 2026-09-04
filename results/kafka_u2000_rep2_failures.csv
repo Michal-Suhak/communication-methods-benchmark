@@ -1,0 +1,6 @@
+Method,Name,Error,Occurrences
+kafka,produce_small,"KafkaTimeoutError(""Batch for TopicPartition(topic='small-messages', partition=2) containing 2 record(s) expired: 50 seconds have passed since batch creation plus linger time"")",1
+kafka,produce_large[100kb],KafkaTimeoutError('Timeout after waiting for 30 secs.'),16
+kafka,produce_small,"KafkaTimeoutError(""Batch for TopicPartition(topic='small-messages', partition=0) containing 2 record(s) expired: 46 seconds have passed since batch creation plus linger time"")",1
+kafka,produce_small,KafkaTimeoutError('Timeout after waiting for 30 secs.'),8
+kafka,produce_large[50kb],KafkaTimeoutError('Timeout after waiting for 30 secs.'),22

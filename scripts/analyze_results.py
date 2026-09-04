@@ -5,13 +5,20 @@ exclusively of Locust `Aggregated` rows — one result per (method, load level,
 repetition). The p50/p95/p99 columns are the MEAN of the same percentile across
 repetitions, never a percentile computed from already-aggregated percentiles.
 
+The scaling analysis (sweep + per-level significance + scaling charts) uses the
+throughput scenario ONLY. The spike (2000) and long_running (50) levels are
+separate scenarios with their own tables/timeline charts and are never plotted
+as points on the throughput scaling curve nor tested as load levels.
+
 Outputs:
-  statistical_analysis.csv           per-method stats, all load levels pooled
-  statistical_analysis_by_level.csv  per (method, users) stats — thesis tables
-  significance_tests.csv             omnibus test on the pooled population
-  significance_by_level.csv          omnibus test per load level
-  posthoc_{dunn,tukey}.csv           pairwise post-hoc, pooled population
-  posthoc_{dunn,tukey}_u{N}.csv      pairwise post-hoc per load level
+  statistical_analysis.csv           per-method stats, throughput levels pooled
+  statistical_analysis_by_level.csv  per (method, users) throughput stats — scaling
+  statistical_analysis_scenarios.csv per (scenario, method, users) — spike/long
+  significance_tests.csv             omnibus test on the pooled throughput population
+  significance_by_level.csv          omnibus test per throughput load level
+  posthoc_{dunn,tukey}.csv           pairwise post-hoc, pooled throughput population
+  posthoc_{dunn,tukey}_u{N}.csv      pairwise post-hoc per throughput load level
+  resource_usage_by_window.csv       CPU/RAM per method, active window of that method
 """
 from __future__ import annotations
 
@@ -29,6 +36,46 @@ PCT_COLS = {"p50": "50%", "p95": "95%", "p99": "99%"}
 METRIC_COL = "50%"  # median latency per repetition (ms)
 # Below this group size the Shapiro-Wilk test has no power — report NaN instead.
 SHAPIRO_MIN_N = 20
+
+# Load levels belong to distinct scenarios. Only the throughput scenario forms
+# the steady-state load sweep (10/100/500/1000, 60 s, 5 reps). The spike (2000,
+# ramp) and long_running (50, 300 s) levels are separate scenarios and must NOT
+# be plotted as points on the throughput scaling curve nor tested as load levels.
+SPIKE_USERS = 2000
+LONG_RUNNING_USERS = 50
+
+
+# cAdvisor samples the whole campaign, in which each protocol is exercised for
+# only ~1/5 of the window. Averaging a broker over the full window mixes its
+# active load with the idle stretches during other protocols' runs, which is not
+# comparable with a server averaged the same way. Every component is therefore
+# aggregated over the active window of ITS OWN protocol, delimited by the
+# container that is busy only while that protocol runs.
+WINDOW_OWNER = {
+    "rest": "rest-server",
+    "grpc": "grpc-server",
+    "graphql": "graphql-server",
+    "amqp": "amqp-consumer",
+}
+# Component whose usage is reported per method (broker for the async methods).
+RESOURCE_COMPONENT = {
+    "rest": "rest-server",
+    "grpc": "grpc-server",
+    "graphql": "graphql-server",
+    "amqp": "rabbitmq",
+    "kafka": "kafka",
+}
+CONSUMER_COMPONENT = {"amqp": "amqp-consumer", "kafka": "kafka-consumer"}
+# Fraction of a container's peak CPU above which it counts as actively loaded.
+ACTIVE_CPU_FRACTION = 0.15
+
+
+def scenario_of(users: int) -> str:
+    if users == SPIKE_USERS:
+        return "spike"
+    if users == LONG_RUNNING_USERS:
+        return "long_running"
+    return "throughput"
 
 
 def iqr_filter(series: pd.Series) -> pd.Series:
@@ -99,6 +146,79 @@ def describe(df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _active_windows(cpu: pd.DataFrame) -> dict[str, tuple[float, float]]:
+    """Active (start, end) timestamp per method, from its owner container's CPU."""
+    windows = {}
+    for method, owner in WINDOW_OWNER.items():
+        series = cpu[cpu["component"] == owner]
+        if series.empty:
+            continue
+        busy = series[series["value"] > series["value"].max() * ACTIVE_CPU_FRACTION]
+        windows[method] = (busy["timestamp"].min(), busy["timestamp"].max())
+    # The Kafka consumer polls the broker for the whole campaign, so it cannot
+    # delimit a window. Kafka's slot is the longest stretch left over once the
+    # other four protocols' windows are removed.
+    stamps = sorted(cpu[cpu["component"] == "kafka"]["timestamp"].unique())
+    free = [t for t in stamps if not any(lo <= t <= hi for lo, hi in windows.values())]
+    if free:
+        blocks, current = [], [free[0]]
+        for t in free[1:]:
+            if t - current[-1] <= 60:
+                current.append(t)
+            else:
+                blocks.append(current)
+                current = [t]
+        blocks.append(current)
+        longest = max(blocks, key=len)
+        windows["kafka"] = (longest[0], longest[-1])
+    # A window that collapses to nothing or swallows the campaign means the
+    # detection heuristic missed — the resulting averages would be meaningless.
+    campaign = stamps[-1] - stamps[0]
+    for method, (lo, hi) in windows.items():
+        share = (hi - lo) / campaign
+        if not 0.05 < share < 0.6:
+            print(f"  WARNING: {method} active window is {share:.0%} of the campaign — check detection.")
+    return windows
+
+
+def resource_usage_by_window() -> pd.DataFrame:
+    """CPU/RAM per method, each averaged over that method's own active window."""
+    path = RESULTS_DIR / "container_resources.csv"
+    if not path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(path)
+    df["component"] = (
+        df["container"].str.replace("communication-methods-benchmark-", "", regex=False).str.replace(r"-1$", "", regex=True)
+    )
+    cpu = df[df["metric"] == "cpu_cores"]
+    ram = df[df["metric"] == "ram_bytes"]
+    windows = _active_windows(cpu)
+
+    rows = []
+    for method, (lo, hi) in windows.items():
+        for role, component in (
+            ("server", RESOURCE_COMPONENT[method]),
+            ("consumer", CONSUMER_COMPONENT.get(method)),
+        ):
+            if component is None:
+                continue
+            c = cpu[(cpu["component"] == component) & cpu["timestamp"].between(lo, hi)]["value"]
+            r = ram[(ram["component"] == component) & ram["timestamp"].between(lo, hi)]["value"]
+            if c.empty:
+                continue
+            rows.append({
+                "method": method,
+                "role": role,
+                "component": component,
+                "window_minutes": round((hi - lo) / 60, 1),
+                "cpu_mean_pct": round(100 * c.mean(), 1),
+                "cpu_max_pct": round(100 * c.max(), 1),
+                "ram_mean_mib": round(r.mean() / 2**20, 1) if not r.empty else float("nan"),
+                "ram_max_mib": round(r.max() / 2**20, 1) if not r.empty else float("nan"),
+            })
+    return pd.DataFrame(rows)
+
+
 def significance_tests(df: pd.DataFrame):
     """Return (omnibus result: dict, posthoc: DataFrame|None).
 
@@ -165,34 +285,51 @@ def main():
         return
 
     df = select_population(df)
-    print(f"Analysing latency (ms) over {len(df)} aggregate rows.")
 
-    # Pooled population (all load levels together) — kept for backward compatibility.
-    summary = describe(df, ["method"])
+    # Split scenarios: the load sweep (scaling charts, per-level significance)
+    # must use the throughput scenario ONLY. Spike/long_running keep their own
+    # dedicated tables and timeline charts, never mixed into the sweep.
+    if "users" in df.columns:
+        df["scenario"] = df["users"].map(scenario_of)
+        thr = df[df["scenario"] == "throughput"]
+        other = df[df["scenario"] != "throughput"]
+    else:
+        thr, other = df, df.iloc[0:0]
+    print(f"Analysing latency (ms): {len(thr)} throughput rows, {len(other)} spike/long-running rows.")
+
+    # Pooled throughput population (all throughput load levels together).
+    summary = describe(thr, ["method"])
     out_summary = RESULTS_DIR / "statistical_analysis.csv"
     summary.to_csv(out_summary, index=False)
     print(f"Saved → {out_summary}")
     if not summary.empty:
         print(summary.to_string(index=False))
 
-    result, posthoc = significance_tests(df)
+    result, posthoc = significance_tests(thr)
     if result:
         pd.DataFrame([result]).to_csv(RESULTS_DIR / "significance_tests.csv", index=False)
         print(f"\nOmnibus ({result['test']}): stat={result['stat']:.4f}, p={result['p']:.6f}")
         _save_posthoc(posthoc, result["test"])
 
-    # Per load level — the population used for the thesis result tables.
     if "users" not in df.columns:
         print("Column 'users' missing — skipping per-level analysis.")
         return
 
-    by_level = describe(df, ["method", "users"])
+    # Per load level — the throughput scaling sweep (feeds the scaling charts).
+    by_level = describe(thr, ["method", "users"])
     out_level = RESULTS_DIR / "statistical_analysis_by_level.csv"
     by_level.to_csv(out_level, index=False)
     print(f"\nSaved → {out_level}")
 
+    # Spike + long_running per (scenario, method, level) — kept separately for
+    # the dedicated scenario tables (traceability), never mixed into the sweep.
+    if not other.empty:
+        scen = describe(other, ["scenario", "method", "users"])
+        scen.to_csv(RESULTS_DIR / "statistical_analysis_scenarios.csv", index=False)
+        print(f"Saved → {RESULTS_DIR / 'statistical_analysis_scenarios.csv'}")
+
     level_results = []
-    for users, level_df in df.groupby("users"):
+    for users, level_df in thr.groupby("users"):
         result, posthoc = significance_tests(level_df)
         if not result:
             continue
@@ -203,6 +340,13 @@ def main():
     if level_results:
         pd.DataFrame(level_results).to_csv(RESULTS_DIR / "significance_by_level.csv", index=False)
         print(f"Saved → {RESULTS_DIR / 'significance_by_level.csv'}")
+
+    resources = resource_usage_by_window()
+    if not resources.empty:
+        out_res = RESULTS_DIR / "resource_usage_by_window.csv"
+        resources.to_csv(out_res, index=False)
+        print(f"Saved → {out_res}")
+        print(resources.to_string(index=False))
 
 
 if __name__ == "__main__":
