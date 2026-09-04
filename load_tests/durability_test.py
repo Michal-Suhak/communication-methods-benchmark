@@ -140,6 +140,22 @@ def main() -> None:
         f"{method}: produced={r['produced']} consumed_unique={r['consumed_unique']} "
         f"lost={r['lost']} duplicates={r['duplicates']}"
     )
+    _append_result(method, r)
+
+
+def _append_result(method: str, r: dict) -> None:
+    """Append the run to results/durability.csv — the thesis cites this file."""
+    import csv
+    from pathlib import Path
+
+    path = Path(__file__).parent / "results" / "durability.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"method": method, "timestamp": int(time.time()), **r}
+    with path.open("a", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=list(row))
+        if fh.tell() == 0:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 if __name__ == "__main__":
