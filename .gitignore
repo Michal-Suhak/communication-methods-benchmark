@@ -101,3 +101,8 @@ coverage.xml
 # Backup files
 *.bak
 *.old
+
+# Thesis: build output and non-distributable assets
+thesis/thesis.pdf
+thesis/fonts/
+thesis/Praca_magisterska_Suhak_Michal.pdf
