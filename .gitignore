@@ -104,3 +104,7 @@ coverage.xml
 
 # Raw measurement exports (bulky dumps/archives; processed CSVs live in results/)
 results/exports/
+# Thesis: build output and non-distributable assets
+thesis/thesis.pdf
+thesis/fonts/
+thesis/Praca_magisterska_Suhak_Michal.pdf
